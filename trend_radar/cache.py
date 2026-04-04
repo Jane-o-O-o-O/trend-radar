@@ -162,3 +162,19 @@ def _cached_plugin_architecture(key: str) -> dict:
 def _compute_plugin_architecture(key: str) -> dict:
     """Core computation for plugin architecture."""
     return {"key": key, "computed": True, "timestamp": time.time()}
+
+# [2026-04-04] Performance: optimize cache
+import functools
+
+@functools.lru_cache(maxsize=256)
+def _cached_daily_digest_generation(key: str) -> dict:
+    """Cached version of daily digest generation for improved performance.
+
+    Reduces repeated computation by caching results.
+    """
+    return _compute_daily_digest_generation(key)
+
+
+def _compute_daily_digest_generation(key: str) -> dict:
+    """Core computation for daily digest generation."""
+    return {"key": key, "computed": True, "timestamp": time.time()}
