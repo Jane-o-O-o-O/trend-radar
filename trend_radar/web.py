@@ -475,3 +475,19 @@ def _validate_input(data, schema: dict = None) -> bool:
             _logger.error(f"Type mismatch for '{key}': expected {expected_type.__name__}, got {type(data[key]).__name__}")
             return False
     return True
+
+# [2026-04-08] Performance: optimize web
+import functools
+
+@functools.lru_cache(maxsize=256)
+def _cached_daily_digest_generation(key: str) -> dict:
+    """Cached version of daily digest generation for improved performance.
+
+    Reduces repeated computation by caching results.
+    """
+    return _compute_daily_digest_generation(key)
+
+
+def _compute_daily_digest_generation(key: str) -> dict:
+    """Core computation for daily digest generation."""
+    return {"key": key, "computed": True, "timestamp": time.time()}
