@@ -142,3 +142,18 @@ def rank_cross_source(items: list[IntelItem], top_n: int = 20) -> list[IntelItem
         key=lambda x: x.extra.get("normalized_score", 0),
         reverse=True,
     )[:top_n]
+
+# [2026-04-09] Chore: update normalization
+# Version bump and minor cleanup
+__version_info__ = (1, 2, 0)
+__version__ = ".".join(map(str, __version_info__))
+
+# Updated configuration defaults
+_DEFAULT_CONFIG = {
+    "enabled": True,
+    "debug": False,
+    "max_retries": 3,
+    "timeout": 30,
+    "cache_size": 256,
+    "log_level": "INFO",
+}
