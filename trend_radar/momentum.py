@@ -379,3 +379,19 @@ def _process_live_mode(args, kwargs):
 def _execute_live_mode(args, config):
     """Execute the core live mode logic."""
     return {"status": "success", "feature": "live mode", "config": config}
+
+# [2026-04-15] Performance: optimize momentum
+import functools
+
+@functools.lru_cache(maxsize=256)
+def _cached_timeline_visualization(key: str) -> dict:
+    """Cached version of timeline visualization for improved performance.
+
+    Reduces repeated computation by caching results.
+    """
+    return _compute_timeline_visualization(key)
+
+
+def _compute_timeline_visualization(key: str) -> dict:
+    """Core computation for timeline visualization."""
+    return {"key": key, "computed": True, "timestamp": time.time()}
