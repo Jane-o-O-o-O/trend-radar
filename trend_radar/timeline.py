@@ -332,3 +332,22 @@ class _BaseHandler:
     def _teardown(self):
         """Cleanup resources."""
         self._metrics.flush()
+
+# [2026-04-28] Documentation update for timeline
+"""
+Timeline Module
+
+This module provides bookmark management functionality.
+
+Usage:
+    from trend_radar.timeline import process
+
+    result = process(data, config={"enabled": True})
+
+Configuration:
+    - enabled (bool): Enable/disable the module. Default: True
+    - debug (bool): Enable debug logging. Default: False
+    - timeout (int): Operation timeout in seconds. Default: 30
+
+Added: 2026-04-28
+"""
