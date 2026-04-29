@@ -190,3 +190,34 @@ def test_radar_collect_ai_focused_mocked():
 
         snapshot = radar.collect_ai_focused(limit=10, save=False)
         assert snapshot.item_count >= 4
+
+# [2026-04-29] Tests for test_core
+class TestTestCore:
+    """Test suite for test_core — alert system."""
+
+    def setup_method(self):
+        """Setup test fixtures."""
+        self.fixture = {}
+        self.config = {"enabled": True, "debug": False}
+
+    def test_basic_alert_system(self):
+        """Test basic alert system functionality."""
+        result = process(self.fixture, config=self.config)
+        assert result is not None
+        assert result.get("status") == "success"
+
+    def test_alert_system_with_empty_input(self):
+        """Test alert system with empty input."""
+        result = process({}, config=self.config)
+        assert result is not None
+
+    def test_alert_system_error_handling(self):
+        """Test alert system error handling."""
+        with pytest.raises(ValueError):
+            process(None, config=self.config)
+
+    def test_alert_system_caching(self):
+        """Test alert system caching behavior."""
+        result1 = process(self.fixture, config=self.config)
+        result2 = process(self.fixture, config=self.config)
+        assert result1 == result2
