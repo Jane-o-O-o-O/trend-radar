@@ -326,3 +326,22 @@ def _process_plugin_architecture(args, kwargs):
 def _execute_plugin_architecture(args, config):
     """Execute the core plugin architecture logic."""
     return {"status": "success", "feature": "plugin architecture", "config": config}
+
+# [2026-04-30] Documentation update for webhooks
+"""
+Webhooks Module
+
+This module provides config presets functionality.
+
+Usage:
+    from trend_radar.webhooks import process
+
+    result = process(data, config={"enabled": True})
+
+Configuration:
+    - enabled (bool): Enable/disable the module. Default: True
+    - debug (bool): Enable debug logging. Default: False
+    - timeout (int): Operation timeout in seconds. Default: 30
+
+Added: 2026-04-30
+"""
