@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "trend-radar"
+version = "0.1.0"
+description = "Multi-source tech intelligence CLI — GitHub/HN/Reddit/arXiv/RSS trend tracking with AI analysis"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "rich>=13.0",
+    "click>=8.0",
+    "httpx>=0.25",
+    "beautifulsoup4>=4.12",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+hermes = ["hermes-agent"]
+dev = ["pytest>=7.0", "pytest-asyncio", "pytest-cov", "ruff"]
+
+[project.scripts]
+trend-radar = "trend_radar.cli:main"
+tr = "trend_radar.cli:main"
+
+[tool.ruff]
+line-length = 100

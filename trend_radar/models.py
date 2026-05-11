@@ -1,0 +1,103 @@
+"""Core data models for Trend Radar."""
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Optional
+
+
+class SourceType(str, Enum):
+    GITHUB = "github"
+    HACKERNEWS = "hackernews"
+    REDDIT = "reddit"
+    ARXIV = "arxiv"
+    RSS = "rss"
+    PRODUCTHUNT = "producthunt"
+
+
+@dataclass
+class IntelItem:
+    """A single intelligence item from any source."""
+
+    title: str
+    source: SourceType
+    url: str = ""
+    description: str = ""
+    score: int = 0  # stars, upvotes, points, etc.
+    author: str = ""
+    tags: list[str] = field(default_factory=list)
+    fetched_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # GitHub-specific
+    repo_stars: Optional[int] = None
+    repo_language: Optional[str] = None
+    repo_forks: Optional[int] = None
+
+    # Metadata
+    extra: dict = field(default_factory=dict)
+
+    @property
+    def score_display(self) -> str:
+        if self.score >= 1000:
+            return f"{self.score/1000:.1f}k"
+        return str(self.score)
+
+    def to_dict(self) -> dict:
+        return {
+            "title": self.title,
+            "source": self.source.value,
+            "url": self.url,
+            "description": self.description,
+            "score": self.score,
+            "author": self.author,
+            "tags": self.tags,
+            "fetched_at": self.fetched_at.isoformat(),
+            "repo_stars": self.repo_stars,
+            "repo_language": self.repo_language,
+            "repo_forks": self.repo_forks,
+            "extra": self.extra,
+        }
+
+
+@dataclass
+class TrendSnapshot:
+    """A snapshot of trends at a point in time."""
+
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    items: list[IntelItem] = field(default_factory=list)
+    sources_queried: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
+    @property
+    def item_count(self) -> int:
+        return len(self.items)
+
+    def top(self, n: int = 10) -> list[IntelItem]:
+        """Return top N items by score."""
+        return sorted(self.items, key=lambda x: x.score, reverse=True)[:n]
+
+    def by_source(self, source: SourceType) -> list[IntelItem]:
+        """Filter items by source."""
+        return [i for i in self.items if i.source == source]
+
+    def keywords(self, top_n: int = 20) -> list[tuple[str, int]]:
+        """Extract most common keywords from titles."""
+        from collections import Counter
+        import re
+
+        words = Counter()
+        stop_words = {
+            "the", "a", "an", "is", "are", "was", "were", "be", "been",
+            "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
+            "by", "from", "this", "that", "it", "as", "can", "do", "does",
+            "not", "no", "have", "has", "had", "will", "would", "could",
+            "should", "may", "might", "new", "how", "what", "when", "where",
+            "who", "which", "why", "your", "you", "my", "we", "our",
+            "open", "source", "free", "github", "just", "like", "get",
+        }
+        for item in self.items:
+            tokens = re.findall(r"[a-zA-Z]{3,}", item.title.lower())
+            for w in tokens:
+                if w not in stop_words and len(w) > 2:
+                    words[w] += 1
+        return words.most_common(top_n)
