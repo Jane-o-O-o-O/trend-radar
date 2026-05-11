@@ -1,8 +1,10 @@
-"""Core engine — orchestrates sources, storage, and rendering."""
+"""Core engine — orchestrates sources, storage, rendering, and caching."""
 
 import os
 from typing import Optional
 
+from .cache import TrendCache
+from .config import TrendConfig
 from .models import IntelItem, SourceType, TrendSnapshot
 from .sources import DataSource
 from .sources.github import GitHubSource
@@ -10,30 +12,72 @@ from .sources.hackernews import HackerNewsSource
 from .sources.reddit import RedditSource
 from .sources.arxiv import ArxivSource
 from .sources.rss import RSSSource
+from .sources.producthunt import ProductHuntSource
 from .store import TrendStore
 
 
-class TrendRadar:
-    """Main engine that aggregates all data sources."""
+# Source class registry
+SOURCE_CLASSES: dict[str, type[DataSource]] = {
+    "github": GitHubSource,
+    "hackernews": HackerNewsSource,
+    "reddit": RedditSource,
+    "arxiv": ArxivSource,
+    "rss": RSSSource,
+    "producthunt": ProductHuntSource,
+}
 
-    def __init__(self, db_path: Optional[str] = None, github_token: Optional[str] = None):
+
+class TrendRadar:
+    """Main engine that aggregates all data sources with caching and config."""
+
+    def __init__(
+        self,
+        db_path: Optional[str] = None,
+        github_token: Optional[str] = None,
+        config_path: Optional[str] = None,
+        use_cache: bool = True,
+    ):
+        self.config = TrendConfig(config_path)
         self.store = TrendStore(db_path)
-        self.github_token = github_token or os.getenv("GITHUB_TOKEN", "")
+        self.github_token = (
+            github_token
+            or os.getenv("GITHUB_TOKEN", "")
+            or self.config.source_config("github").get("token", "")
+        )
+
+        # Cache
+        self.cache: Optional[TrendCache] = None
+        if use_cache and self.config.cache_enabled:
+            self.cache = TrendCache(
+                memory_ttl=self.config.cache_memory_ttl,
+                disk_ttl=self.config.cache_disk_ttl,
+            )
 
         # Initialize sources
-        self.sources: dict[str, DataSource] = {
-            "github": GitHubSource(token=self.github_token),
-            "hackernews": HackerNewsSource(),
-            "reddit": RedditSource(),
-            "arxiv": ArxivSource(),
-            "rss": RSSSource(),
-        }
+        self.sources: dict[str, DataSource] = {}
+        self._init_sources()
+
+    def _init_sources(self):
+        """Initialize all enabled sources from config."""
+        for name, cls in SOURCE_CLASSES.items():
+            src_cfg = self.config.source_config(name)
+            if not src_cfg.get("enabled", True):
+                continue
+
+            if name == "github":
+                self.sources[name] = cls(token=self.github_token)
+            elif name == "rss":
+                feeds = src_cfg.get("feeds")
+                self.sources[name] = cls(feeds=feeds if feeds else None)
+            else:
+                self.sources[name] = cls()
 
     def collect(
         self,
         sources: list[str] | None = None,
         limit: int = 25,
         save: bool = True,
+        use_cache: bool = True,
         **kwargs,
     ) -> TrendSnapshot:
         """Collect intel from all (or specified) sources."""
@@ -46,10 +90,26 @@ class TrendRadar:
                 snapshot.errors.append(f"Unknown source: {name}")
                 continue
 
+            # Check cache
+            cache_key = None
+            if use_cache and self.cache:
+                cache_key = TrendCache.make_key(f"fetch:{name}", limit=limit, **kwargs)
+                cached = self.cache.get(cache_key)
+                if cached:
+                    items = [IntelItem(**d) for d in cached] if isinstance(cached, list) else []
+                    snapshot.items.extend(items)
+                    snapshot.sources_queried.append(name)
+                    continue
+
             try:
                 items = source.fetch(limit=limit, **kwargs)
                 snapshot.items.extend(items)
                 snapshot.sources_queried.append(name)
+
+                # Store in cache
+                if cache_key and self.cache:
+                    self.cache.set(cache_key, [it.to_dict() for it in items])
+
             except Exception as e:
                 snapshot.errors.append(f"{name}: {e}")
 
@@ -137,19 +197,10 @@ class TrendRadar:
         """Analyze a snapshot for opportunities."""
         from collections import Counter
 
-        # Keywords
         keywords = snapshot.keywords(30)
-
-        # Source distribution
         source_dist = Counter(i.source.value for i in snapshot.items)
-
-        # Top items
         top = snapshot.top(10)
-
-        # High-star repos (potential competition or inspiration)
         high_star = [i for i in snapshot.items if i.source == SourceType.GITHUB and (i.repo_stars or 0) >= 100]
-
-        # Languages
         lang_dist = Counter(i.repo_language for i in snapshot.items if i.repo_language)
 
         return {
@@ -165,4 +216,7 @@ class TrendRadar:
 
     def get_stats(self) -> dict:
         """Get engine statistics."""
-        return self.store.get_stats()
+        stats = self.store.get_stats()
+        if self.cache:
+            stats["cache"] = self.cache.stats()
+        return stats

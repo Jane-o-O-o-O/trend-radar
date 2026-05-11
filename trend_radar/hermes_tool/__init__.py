@@ -26,7 +26,7 @@ def trend_fetch(sources: str = "github,hackernews,reddit", limit: int = 15) -> s
     """Fetch trending intel from multiple sources.
 
     Args:
-        sources: Comma-separated source names (github,hackernews,reddit,arxiv,rss)
+        sources: Comma-separated source names (github,hackernews,reddit,arxiv,rss,producthunt)
         limit: Number of items per source
     """
     radar = get_radar()

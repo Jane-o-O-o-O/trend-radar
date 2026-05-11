@@ -1,3 +1,21 @@
-# Trend Radar — Multi-source tech intelligence CLI
+"""Trend Radar — Multi-source tech intelligence CLI.
 
-__version__ = "0.1.0"
+Aggregate GitHub, Hacker News, Reddit, arXiv, RSS, and Product Hunt
+trends into a single beautiful terminal dashboard.
+"""
+
+__version__ = "0.2.0"
+
+from .core import TrendRadar
+from .models import IntelItem, SourceType, TrendSnapshot
+from .store import TrendStore
+from .config import TrendConfig
+
+__all__ = [
+    "TrendRadar",
+    "IntelItem",
+    "SourceType",
+    "TrendSnapshot",
+    "TrendStore",
+    "TrendConfig",
+]
