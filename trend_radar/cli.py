@@ -21,7 +21,7 @@ def _get_console(ctx) -> Console:
 
 
 @click.group()
-@click.version_option("0.3.0")
+@click.version_option("0.4.0")
 @click.option("--db", default=None, help="Path to trends database")
 @click.option("--github-token", default=None, help="GitHub personal access token")
 @click.option("--config", "config_path", default=None, help="Path to config file")
@@ -49,11 +49,13 @@ def main(ctx, db, github_token, config_path, no_cache):
 @click.option("--layout", "-l", type=click.Choice(["table", "cards", "compact"]), default="table")
 @click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.option("--markdown", "output_md", is_flag=True, help="Output as Markdown")
+@click.option("--html", "output_html", is_flag=True, help="Output as standalone HTML")
+@click.option("--csv", "output_csv", is_flag=True, help="Output as CSV")
 @click.option("--watch", "-w", is_flag=False, type=int, default=0, help="Auto-refresh every N seconds (0=off)")
 @click.option("--no-banner", is_flag=True, help="Hide ASCII banner")
 @click.option("--output", "-o", "output_file", default=None, help="Write output to file")
 @click.pass_context
-def fetch(ctx, sources, limit, layout, output_json, output_md, watch, no_banner, output_file):
+def fetch(ctx, sources, limit, layout, output_json, output_md, output_html, output_csv, watch, no_banner, output_file):
     """Fetch trending intel from all sources."""
     radar = _get_radar(ctx)
     console = _get_console(ctx)
@@ -67,12 +69,28 @@ def fetch(ctx, sources, limit, layout, output_json, output_md, watch, no_banner,
             text = JsonRenderer().render(snapshot)
         elif output_md:
             text = MarkdownRenderer().render(snapshot)
-        else:
-            if output_file:
-                text = MarkdownRenderer().render(snapshot)
+        elif output_html:
+            from .exporters.html import HtmlRenderer
+            text = HtmlRenderer().render(snapshot)
+        elif output_csv:
+            from .exporters.csv_export import CsvRenderer
+            text = CsvRenderer().render(snapshot)
+        elif output_file:
+            # Auto-detect format from extension
+            ext = output_file.rsplit(".", 1)[-1].lower() if "." in output_file else ""
+            if ext == "html" or ext == "htm":
+                from .exporters.html import HtmlRenderer
+                text = HtmlRenderer().render(snapshot)
+            elif ext == "csv":
+                from .exporters.csv_export import CsvRenderer
+                text = CsvRenderer().render(snapshot)
+            elif ext == "json":
+                text = JsonRenderer().render(snapshot)
             else:
-                TerminalRenderer(console, show_banner=not no_banner).render_snapshot(snapshot, layout=layout)
-                return
+                text = MarkdownRenderer().render(snapshot)
+        else:
+            TerminalRenderer(console, show_banner=not no_banner).render_snapshot(snapshot, layout=layout)
+            return
 
         if output_file:
             from pathlib import Path
@@ -303,6 +321,55 @@ def sources_list(ctx):
 
     console.print()
     console.print(tbl)
+
+
+@main.command()
+@click.option("--host", "-h", default="127.0.0.1", help="Host to bind")
+@click.option("--port", "-p", default=8765, help="Port to listen on", type=int)
+@click.option("--no-browser", is_flag=True, help="Don't auto-open browser")
+@click.pass_context
+def serve(ctx, host, port, no_browser):
+    """Start the web dashboard server."""
+    radar = _get_radar(ctx)
+    console = _get_console(ctx)
+
+    try:
+        from .web import create_app, HAS_FASTAPI
+        if not HAS_FASTAPI:
+            console.print("[red]Error:[/red] fastapi and uvicorn are required.")
+            console.print("Install with: [bold]pip install fastapi uvicorn[/]")
+            sys.exit(1)
+    except ImportError:
+        console.print("[red]Error:[/red] fastapi and uvicorn are required.")
+        console.print("Install with: [bold]pip install fastapi uvicorn[/]")
+        sys.exit(1)
+
+    app = create_app(radar=radar, host=host, port=port)
+
+    console.print(f"\n[bold bright_cyan]📡 Trend Radar Web Dashboard[/]")
+    console.print(f"   [dim]Open:[/] [link=http://{host}:{port}]http://{host}:{port}[/link]")
+    console.print(f"   [dim]API:[/]  [link=http://{host}:{port}/api/fetch]http://{host}:{port}/api/fetch[/link]")
+    console.print(f"\n[dim]Press Ctrl+C to stop.[/]\n")
+
+    if not no_browser:
+        import webbrowser
+        try:
+            webbrowser.open(f"http://{host}:{port}")
+        except Exception:
+            pass
+
+    import uvicorn
+    uvicorn.run(app, host=host, port=port, log_level="warning")
+
+
+@main.command()
+@click.pass_context
+def shell(ctx):
+    """Launch interactive Trend Radar shell."""
+    radar = _get_radar(ctx)
+    console = _get_console(ctx)
+    from .shell import run_shell
+    run_shell(radar, console)
 
 
 if __name__ == "__main__":

@@ -1,45 +1,74 @@
-# 📋 Changelog
+# Changelog
 
-All notable changes to Trend Radar will be documented in this file.
+All notable changes to Trend Radar are documented here.
+
+## [0.4.0] — 2026-05-12
+
+### ✨ New Features
+- **Interactive Shell** — `trend-radar shell` launches a REPL with tab completion (prompt_toolkit)
+- **Web Dashboard** — `trend-radar serve` starts a FastAPI web UI with REST API on `:8765`
+- **HTML Export** — `--html` flag generates a standalone dark-themed HTML dashboard with charts
+- **CSV Export** — `--csv` flag exports trend data as spreadsheet-ready CSV
+- **Auto-detect output format** — `-o file.html` automatically selects HTML renderer from extension
+
+### 🎨 Visual Improvements
+- Score tier badges with icons (🔥 for 10k+, 🔴🟡🟢🔵⚪ for lower scores)
+- Gradient progress bars using Rich Text colors
+- Enhanced card layout with rank badges (🥇🥈🥉)
+- Average score in summary footer
+- Improved compact view with tier icons
+
+### 📦 Infrastructure
+- New `exporters/` module with `html.py` and `csv_export.py`
+- New `shell.py` module for interactive REPL
+- New `web.py` module for FastAPI dashboard
+- Optional dependency groups: `pip install trend-radar[web|shell|all]`
+- Version bumped to 0.4.0
+
+### 🧪 Tests
+- **154 tests** (up from 125)
+- New test files: `test_html_export.py`, `test_csv_export.py`, `test_shell.py`, `test_web.py`
+- New CLI tests for HTML/CSV output and new commands
+- Updated render tests for score_badge and gradient_bar
+
+### 📖 Documentation
+- README overhaul with feature comparison table
+- Web dashboard documentation with API examples
+- Interactive shell usage guide
+- Export format examples (HTML, CSV)
 
 ## [0.3.0] — 2026-05-12
 
-### Added
-- **CLI end-to-end tests** — 18 tests using Click's CliRunner
-- **SQLite store tests** — 14 tests for TrendStore
-- **Data source tests** — 17 tests for HN, Reddit, arXiv, RSS, GitHub sources
-- **`--output` / `-o` flag** — write fetch results to file (JSON/Markdown)
-- **GitHub Actions CI/CD** — automated testing on Python 3.10/3.11/3.12
-- **CONTRIBUTING.md** — developer guide for contributors
-- **CHANGELOG.md** — this file
+### ✨ New Features
+- CLI end-to-end tests using Click CliRunner
+- SQLite store complete test coverage
+- Individual data source tests
+- `--output/-o` file export
+- GitHub Actions CI/CD
 
-### Fixed
-- **Panel import bug** in `cli.py` `history` command (NameError on empty history)
-- **Duplicated stop-words** — consolidated to single `STOP_WORDS` constant in `models.py`
+### 🐛 Bug Fixes
+- Fixed Panel/SourceType import in cli.py
+- Fixed RSS source root.iter() slice bug
+- Unified STOP_WORDS constant
 
-### Changed
-- `STOP_WORDS` is now a public constant exported from the package
-- Version bumped to 0.3.0
+### 📖 Documentation
+- Added CONTRIBUTING.md
+- Added CHANGELOG.md
 
 ## [0.2.0] — 2026-05-12
 
-### Added
-- Two-level caching system (memory TTL + SQLite disk cache)
-- YAML configuration system (`~/.trend-radar/config.yaml`)
-- Product Hunt data source (web scraping)
-- Rich terminal rendering with 3 layouts (table/cards/compact)
-- Keyword trend analysis with progress bars
-- `--watch` auto-refresh mode
-- `--json` / `--markdown` output formats
+### ✨ New Features
+- Two-level cache (memory TTL + disk SQLite)
+- YAML configuration system
+- Rich terminal rendering (tables, cards, compact)
+- Product Hunt data source
 - Hermes Agent tool integration
-- 72 unit tests
 
 ## [0.1.0] — 2026-05-11
 
-### Added
-- Initial release
-- 5 data sources: GitHub, Hacker News, Reddit, arXiv, RSS
-- SQLite storage with trend tracking
-- Basic CLI with Click
-- Search across sources
-- AI-focused intelligence mode
+### 🎉 Initial Release
+- 6 data sources: GitHub, Hacker News, Reddit, arXiv, RSS, Product Hunt
+- SQLite storage with history tracking
+- TrendRadar core engine
+- Click CLI with fetch/search/ai/history/keywords/stats commands
+- Basic terminal output

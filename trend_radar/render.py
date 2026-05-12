@@ -49,18 +49,24 @@ SOURCE_BORDER = {
     SourceType.PRODUCTHUNT: "green",
 }
 
+# Score tier styles
+SCORE_TIERS = [
+    (10000, "bold bright_red", "🔥"),
+    (5000, "bold bright_red", "🔴"),
+    (1000, "bold bright_yellow", "🟡"),
+    (500, "bright_green", "🟢"),
+    (100, "bright_cyan", "🔵"),
+    (0, "dim", "⚪"),
+]
 
-BANNER_ART = r"""
-[bold bright_cyan]
+BANNER_ART = r"""[bold bright_cyan]
   ████████╗██████╗ ███████╗███╗   ██╗██████╗     ██████╗  █████╗ ██████╗  █████╗ ██████╗ 
   ╚══██╔══╝██╔══██╗██╔════╝████╗  ██║██╔══██╗    ██╔══██╗██╔══██╗██╔══██╗██╔══██╗██╔══██╗
      ██║   ██████╔╝█████╗  ██╔██╗ ██║██║  ██║    ██████╔╝███████║██║  ██║███████║██████╔╝
      ██║   ██╔══██╗██╔══╝  ██║╚██╗██║██║  ██║    ██╔══██╗██╔══██║██║  ██║██╔══██║██╔══██╗
      ██║   ██║  ██║███████╗██║ ╚████║██████╔╝    ██║  ██║██║  ██║██████╔╝██║  ██║██║  ██║
      ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝╚═════╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝
-[/bold bright_cyan]
-[dim]  Multi-source tech intelligence · GitHub · HN · Reddit · arXiv · RSS · Product Hunt[/dim]
-"""
+[/bold bright_cyan][dim]  Multi-source tech intelligence · GitHub · HN · Reddit · arXiv · RSS · Product Hunt[/dim]"""
 
 
 def sparkline(values: list[int], width: int = 20) -> str:
@@ -88,6 +94,33 @@ def progress_bar(value: int, max_val: int, width: int = 20) -> str:
         return "░" * width
     filled = min(int(value / max_val * width), width)
     return "█" * filled + "░" * (width - filled)
+
+
+def gradient_bar(value: int, max_val: int, width: int = 20) -> Text:
+    """Generate a gradient progress bar using Rich Text with colors."""
+    if max_val <= 0:
+        return Text("░" * width, style="dim")
+    filled = min(int(value / max_val * width), width)
+    t = Text()
+    if filled > 0:
+        t.append("█" * filled, style="bright_cyan")
+    if width - filled > 0:
+        t.append("░" * (width - filled), style="dim")
+    return t
+
+
+def score_badge(item: IntelItem) -> Text:
+    """Return a score with a colored tier badge."""
+    display = item.score_display
+    for threshold, style, badge in SCORE_TIERS:
+        if item.score >= threshold:
+            return Text(f"{badge} {display}", style=style)
+    return Text(f"⚪ {display}", style="dim")
+
+
+def mini_sparkline(values: list[int], width: int = 8) -> str:
+    """Generate a compact sparkline for inline use."""
+    return sparkline(values, width)
 
 
 class TerminalRenderer:
@@ -133,7 +166,7 @@ class TerminalRenderer:
         table.add_column("#", style="dim", width=3, justify="right")
         table.add_column("", width=3)
         table.add_column("Title", style="cyan", ratio=3, no_wrap=False)
-        table.add_column("Score", justify="right", width=8)
+        table.add_column("Score", justify="right", width=10)
         table.add_column("Details", ratio=2, style="dim", no_wrap=False)
 
         for i, item in enumerate(items, 1):
@@ -142,26 +175,13 @@ class TerminalRenderer:
             if item.repo_language:
                 info = f"[bright_green]{item.repo_language}[/] {info}"
 
-            # Color score based on magnitude
-            score_str = self._colored_score(item)
+            # Score badge with tier icon
+            score_text = score_badge(item)
 
-            table.add_row(str(i), emoji, item.title, score_str, info)
+            table.add_row(str(i), emoji, item.title, score_text, info)
 
         self.console.print()
         self.console.print(table)
-
-    def _colored_score(self, item: IntelItem) -> Text:
-        """Return a colored score display."""
-        display = item.score_display
-        if item.score >= 5000:
-            return Text(display, style="bold bright_red")
-        elif item.score >= 1000:
-            return Text(display, style="bold bright_yellow")
-        elif item.score >= 100:
-            return Text(display, style="bright_green")
-        elif item.score > 0:
-            return Text(display, style="dim")
-        return Text(display, style="dim")
 
     def _render_header(self, snapshot: TrendSnapshot):
         """Render a stunning dashboard header."""
@@ -229,13 +249,13 @@ class TerminalRenderer:
             )
             table.add_column("#", style="dim", width=3, justify="right")
             table.add_column("Title", style="bright_white", ratio=3, no_wrap=False)
-            table.add_column("Score", justify="right", width=9)
+            table.add_column("Score", justify="right", width=12)
             table.add_column("Details", ratio=2, style="dim", no_wrap=False)
 
             max_score = max((it.score for it in items_sorted), default=1) or 1
 
             for i, item in enumerate(items_sorted[:10], 1):
-                score_text = self._colored_score(item)
+                score_text = score_badge(item)
 
                 # Build detail string
                 details_parts = []
@@ -245,9 +265,6 @@ class TerminalRenderer:
                     desc = item.description[:50] + "…" if len(item.description) > 50 else item.description
                     details_parts.append(desc)
                 details = "  ".join(details_parts)
-
-                # Sparkline mini-bar for score
-                bar = progress_bar(item.score, max_score, width=12)
 
                 table.add_row(str(i), item.title, score_text, details)
 
@@ -266,13 +283,14 @@ class TerminalRenderer:
             self.console.print(Panel("[dim]No items found from any source.[/dim]", border_style="dim"))
 
     def _render_cards(self, snapshot: TrendSnapshot):
-        """Render items as panels/cards."""
+        """Render items as panels/cards with enhanced visuals."""
         for i, item in enumerate(snapshot.top(12), 1):
             emoji = SOURCE_EMOJI.get(item.source, "•")
             border = SOURCE_BORDER.get(item.source, "dim")
 
-            # Title
-            title = Text(f" {emoji} {item.title} ", style="bold bright_white")
+            # Title with rank badge
+            rank_badge = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"#{i}"
+            title = Text(f" {rank_badge} {emoji} {item.title} ", style="bold bright_white")
 
             # Content
             content = Text()
@@ -282,9 +300,13 @@ class TerminalRenderer:
                 content.append(f"🔗 {item.url}\n", style="bright_blue underline")
             if item.author:
                 content.append(f"👤 {item.author}", style="dim")
+            if item.repo_language:
+                content.append(f"  ·  💻 {item.repo_language}", style="bright_green")
 
-            # Subtitle with score
-            subtitle = f"⭐ {item.score_display}" if item.score else ""
+            # Subtitle with score badge
+            score_b = score_badge(item)
+            subtitle = Text()
+            subtitle.append_text(score_b)
 
             self.console.print(
                 Panel(
@@ -298,8 +320,10 @@ class TerminalRenderer:
             )
 
     def _render_compact(self, snapshot: TrendSnapshot):
-        """Render compact single-line items."""
+        """Render compact single-line items with sparkline bars."""
         items = snapshot.top(40)
+        if not items:
+            return
         max_score = max((it.score for it in items), default=1) or 1
 
         self.console.print()
@@ -311,13 +335,18 @@ class TerminalRenderer:
             score_display = item.score_display
             rank_color = "bright_white" if i <= 3 else "bright_cyan" if i <= 10 else "dim"
 
+            # Tier icon
+            _, _, tier_icon = next(
+                (t for t in SCORE_TIERS if item.score >= t[0]), (0, "dim", "⚪")
+            )
+
             self.console.print(
-                f"  [{rank_color}]{i:>2}.[/{rank_color}] {emoji} {title:<58} "
+                f"  [{rank_color}]{i:>2}.[/{rank_color}] {tier_icon} {emoji} {title:<58} "
                 f"{bar} [{rank_color}]{score_display:>7}[/{rank_color}]"
             )
 
     def _render_keywords(self, snapshot: TrendSnapshot):
-        """Render trending keywords as a beautiful tag cloud."""
+        """Render trending keywords as a beautiful tag cloud with bars."""
         kw = snapshot.keywords(20)
         if not kw:
             return
@@ -333,7 +362,7 @@ class TerminalRenderer:
 
         max_count = max(c for _, c in kw) if kw else 1
         for word, count in kw[:15]:
-            bar = progress_bar(count, max_count, width=25)
+            bar = gradient_bar(count, max_count, width=25)
             if count >= 5:
                 style = "bright_red"
             elif count >= 3:
@@ -343,14 +372,14 @@ class TerminalRenderer:
 
             kw_table.add_row(
                 f"[{style}]{word}[/{style}]",
-                f"[{style}]{bar}[/{style}]",
+                bar,
                 f"[{style}]{count}[/{style}]",
             )
 
         self.console.print(kw_table)
 
     def _render_summary(self, snapshot: TrendSnapshot):
-        """Render summary statistics."""
+        """Render summary statistics with visual flair."""
         by_source = {}
         for item in snapshot.items:
             src = item.source.value
@@ -367,10 +396,15 @@ class TerminalRenderer:
 
         summary_line = "  │  ".join(parts)
 
+        # Calculate avg score
+        scores = [it.score for it in snapshot.items if it.score > 0]
+        avg_score = sum(scores) / len(scores) if scores else 0
+
         self.console.print()
         self.console.print(Rule(style="dim"))
         self.console.print(
-            f"  📊 [bold]{snapshot.item_count}[/] items  │  {summary_line}",
+            f"  📊 [bold]{snapshot.item_count}[/] items  │  {summary_line}  │  "
+            f"Avg score: [bold]{avg_score:.0f}[/]",
             style="dim",
         )
 

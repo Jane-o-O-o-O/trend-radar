@@ -11,6 +11,8 @@ from trend_radar.render import (
     MarkdownRenderer,
     sparkline,
     progress_bar,
+    gradient_bar,
+    score_badge,
     SOURCE_EMOJI,
 )
 
@@ -152,17 +154,36 @@ def test_source_emoji_coverage():
 
 
 def test_colored_score():
-    buf = StringIO()
-    console = Console(file=buf, width=120, force_terminal=True)
-    r = TerminalRenderer(console=console)
-
+    """Test score_badge function with different score tiers."""
     high = IntelItem(title="a", source=SourceType.GITHUB, score=10000)
     mid = IntelItem(title="b", source=SourceType.GITHUB, score=2000)
     low = IntelItem(title="c", source=SourceType.GITHUB, score=50)
     zero = IntelItem(title="d", source=SourceType.GITHUB, score=0)
 
-    # Just ensure no errors
-    r._colored_score(high)
-    r._colored_score(mid)
-    r._colored_score(low)
-    r._colored_score(zero)
+    # Just ensure no errors and return Text objects
+    result_high = score_badge(high)
+    result_mid = score_badge(mid)
+    result_low = score_badge(low)
+    result_zero = score_badge(zero)
+
+    assert "10.0k" in str(result_high)
+    assert "2.0k" in str(result_mid)
+    assert "50" in str(result_low)
+    assert "0" in str(result_zero)
+
+
+def test_gradient_bar():
+    """Test gradient bar generation."""
+    from rich.text import Text
+    result = gradient_bar(50, 100, width=10)
+    assert isinstance(result, Text)
+
+
+def test_score_badge_tiers():
+    """Test score badge returns appropriate tier icons."""
+    from trend_radar.render import SCORE_TIERS
+
+    for threshold, style, badge in SCORE_TIERS:
+        item = IntelItem(title="test", source=SourceType.GITHUB, score=threshold)
+        result = score_badge(item)
+        assert badge in str(result)

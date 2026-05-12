@@ -301,3 +301,71 @@ def test_cli_ai_command(tmp_path):
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "items" in data
+
+
+def test_cli_fetch_html_output(tmp_path):
+    """Test fetch with HTML output."""
+    runner = _make_runner()
+    mock_snap = _mock_snapshot()
+
+    with patch("trend_radar.cli.TrendRadar") as MockRadar:
+        instance = MockRadar.return_value
+        instance.collect.return_value = mock_snap
+
+        result = runner.invoke(main, ["--db", str(tmp_path / "test.db"),
+                                       "--config", str(tmp_path / "cfg.yaml"),
+                                       "fetch", "--html"])
+        assert result.exit_code == 0
+        assert "<!DOCTYPE html>" in result.output
+
+
+def test_cli_fetch_csv_output(tmp_path):
+    """Test fetch with CSV output."""
+    runner = _make_runner()
+    mock_snap = _mock_snapshot()
+
+    with patch("trend_radar.cli.TrendRadar") as MockRadar:
+        instance = MockRadar.return_value
+        instance.collect.return_value = mock_snap
+
+        result = runner.invoke(main, ["--db", str(tmp_path / "test.db"),
+                                       "--config", str(tmp_path / "cfg.yaml"),
+                                       "fetch", "--csv"])
+        assert result.exit_code == 0
+        assert "rank" in result.output
+        assert "source" in result.output
+
+
+def test_cli_fetch_html_file_output(tmp_path):
+    """Test fetch with HTML file output (auto-detect from extension)."""
+    runner = _make_runner()
+    mock_snap = _mock_snapshot()
+    out_file = tmp_path / "output.html"
+
+    with patch("trend_radar.cli.TrendRadar") as MockRadar:
+        instance = MockRadar.return_value
+        instance.collect.return_value = mock_snap
+
+        result = runner.invoke(main, ["--db", str(tmp_path / "test.db"),
+                                       "--config", str(tmp_path / "cfg.yaml"),
+                                       "fetch", "--output", str(out_file)])
+        assert result.exit_code == 0
+        assert out_file.exists()
+        content = out_file.read_text()
+        assert "<!DOCTYPE html>" in content
+
+
+def test_cli_shell_help():
+    """Test that shell command appears in help."""
+    runner = _make_runner()
+    result = runner.invoke(main, ["--help"])
+    assert result.exit_code == 0
+    assert "shell" in result.output
+
+
+def test_cli_serve_help():
+    """Test that serve command appears in help."""
+    runner = _make_runner()
+    result = runner.invoke(main, ["--help"])
+    assert result.exit_code == 0
+    assert "serve" in result.output
