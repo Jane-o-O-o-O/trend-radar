@@ -1,6 +1,8 @@
 """Core engine — orchestrates sources, storage, rendering, and caching."""
 
+import concurrent.futures
 import os
+import time
 from typing import Optional
 
 from .cache import TrendCache
@@ -78,40 +80,75 @@ class TrendRadar:
         limit: int = 25,
         save: bool = True,
         use_cache: bool = True,
+        parallel: bool = True,
+        max_workers: int = 6,
         **kwargs,
     ) -> TrendSnapshot:
-        """Collect intel from all (or specified) sources."""
+        """Collect intel from all (or specified) sources.
+
+        Args:
+            sources: Source names to fetch from. None = all enabled.
+            limit: Max items per source.
+            save: Save snapshot to SQLite store.
+            use_cache: Check cache before fetching.
+            parallel: Fetch sources in parallel (default True).
+            max_workers: Thread pool size for parallel fetch.
+            **kwargs: Extra args passed to source.fetch().
+
+        Returns:
+            TrendSnapshot with all collected items.
+        """
         target_sources = sources or list(self.sources.keys())
         snapshot = TrendSnapshot()
 
-        for name in target_sources:
+        def _fetch_one(name: str) -> tuple[str, list[IntelItem], str | None]:
+            """Fetch from a single source, return (name, items, error)."""
             source = self.sources.get(name)
             if not source:
-                snapshot.errors.append(f"Unknown source: {name}")
-                continue
+                return name, [], f"Unknown source: {name}"
 
             # Check cache
             cache_key = None
             if use_cache and self.cache:
                 cache_key = TrendCache.make_key(f"fetch:{name}", limit=limit, **kwargs)
                 cached = self.cache.get(cache_key)
-                if cached:
-                    items = [IntelItem(**d) for d in cached] if isinstance(cached, list) else []
-                    snapshot.items.extend(items)
-                    snapshot.sources_queried.append(name)
-                    continue
+                if cached and isinstance(cached, list):
+                    items = [IntelItem(**d) for d in cached]
+                    return name, items, None
 
             try:
                 items = source.fetch(limit=limit, **kwargs)
-                snapshot.items.extend(items)
-                snapshot.sources_queried.append(name)
 
                 # Store in cache
                 if cache_key and self.cache:
                     self.cache.set(cache_key, [it.to_dict() for it in items])
 
+                return name, items, None
             except Exception as e:
-                snapshot.errors.append(f"{name}: {e}")
+                return name, [], f"{name}: {e}"
+
+        if parallel and len(target_sources) > 1:
+            # Parallel fetch using thread pool
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+                futures = {
+                    pool.submit(_fetch_one, name): name for name in target_sources
+                }
+                for future in concurrent.futures.as_completed(futures):
+                    name, items, error = future.result()
+                    snapshot.items.extend(items)
+                    if items:
+                        snapshot.sources_queried.append(name)
+                    if error:
+                        snapshot.errors.append(error)
+        else:
+            # Sequential fetch
+            for name in target_sources:
+                name, items, error = _fetch_one(name)
+                snapshot.items.extend(items)
+                if items:
+                    snapshot.sources_queried.append(name)
+                if error:
+                    snapshot.errors.append(error)
 
         if save:
             self.store.save_snapshot(snapshot)
@@ -220,3 +257,183 @@ class TrendRadar:
         if self.cache:
             stats["cache"] = self.cache.stats()
         return stats
+
+    def diff_snapshots(self, hours: int = 24) -> dict:
+        """Compare the latest two snapshots to detect rising/falling trends.
+
+        Returns a dict with 'rising', 'falling', 'new', and 'gone' items.
+        """
+        snapshots = self.store.get_snapshots(limit=2)
+        if len(snapshots) < 2:
+            return {
+                "rising": [],
+                "falling": [],
+                "new": [],
+                "gone": [],
+                "current_count": 0,
+                "previous_count": 0,
+                "current_ts": "",
+                "previous_ts": "",
+            }
+
+        current_items = self.store.get_snapshot_items(snapshots[0]["id"])
+        previous_items = self.store.get_snapshot_items(snapshots[1]["id"])
+
+        # Build lookup by title (case-insensitive)
+        current_map: dict[str, dict] = {}
+        for item in current_items:
+            key = item["title"].lower().strip()
+            if key not in current_map or item.get("score", 0) > current_map[key].get("score", 0):
+                current_map[key] = item
+
+        previous_map: dict[str, dict] = {}
+        for item in previous_items:
+            key = item["title"].lower().strip()
+            if key not in previous_map or item.get("score", 0) > previous_map[key].get("score", 0):
+                previous_map[key] = item
+
+        rising = []
+        falling = []
+        new_items = []
+        gone_items = []
+
+        for key, item in current_map.items():
+            if key in previous_map:
+                prev_score = previous_map[key].get("score", 0)
+                curr_score = item.get("score", 0)
+                delta = curr_score - prev_score
+                item["score_delta"] = delta
+                if delta > 0:
+                    rising.append(item)
+                elif delta < 0:
+                    falling.append(item)
+            else:
+                new_items.append(item)
+
+        for key, item in previous_map.items():
+            if key not in current_map:
+                gone_items.append(item)
+
+        # Sort by absolute delta
+        rising.sort(key=lambda x: x.get("score_delta", 0), reverse=True)
+        falling.sort(key=lambda x: x.get("score_delta", 0))
+
+        return {
+            "rising": rising[:20],
+            "falling": falling[:20],
+            "new": new_items[:20],
+            "gone": gone_items[:20],
+            "current_count": len(current_items),
+            "previous_count": len(previous_items),
+            "current_ts": snapshots[0].get("timestamp", ""),
+            "previous_ts": snapshots[1].get("timestamp", ""),
+        }
+
+    def get_top_items(
+        self,
+        limit: int = 20,
+        hours: int = 24,
+        source: Optional[str] = None,
+        topic: Optional[str] = None,
+    ) -> list[IntelItem]:
+        """Get top items from recent history, optionally filtered by source/topic.
+
+        Args:
+            limit: Max items to return.
+            hours: Look back N hours.
+            source: Filter by source name.
+            topic: Filter by topic keywords (ai, web, mobile, security, etc).
+        """
+        items_raw = self.store.get_trending_items(hours=hours, source=source, limit=limit * 3)
+
+        items = []
+        for r in items_raw:
+            try:
+                src = SourceType(r["source"])
+            except ValueError:
+                src = SourceType.RSS
+
+            item = IntelItem(
+                title=r["title"],
+                source=src,
+                url=r.get("url", ""),
+                description=r.get("description", ""),
+                score=r.get("score", 0),
+                author=r.get("author", ""),
+            )
+
+            # Apply topic filter
+            if topic and not self._matches_topic(item, topic):
+                continue
+
+            items.append(item)
+
+        return sorted(items, key=lambda x: x.score, reverse=True)[:limit]
+
+    # Topic keywords for filtering
+    TOPIC_KEYWORDS: dict[str, set[str]] = {
+        "ai": {"ai", "llm", "gpt", "ml", "machine", "learning", "deep", "neural",
+               "transformer", "model", "agent", "rag", "embedding", "diffusion",
+               "copilot", "chatbot", "nlp", "llama", "claude", "openai", "anthropic"},
+        "web": {"javascript", "typescript", "react", "vue", "angular", "next", "svelte",
+                "css", "html", "frontend", "backend", "node", "deno", "bun", "web",
+                "tailwind", "astro", "remix"},
+        "mobile": {"android", "ios", "swift", "kotlin", "flutter", "react-native",
+                   "mobile", "app", "swiftui", "jetpack"},
+        "security": {"security", "vulnerability", "cve", "hack", "exploit", "malware",
+                     "encryption", "auth", "zero-day", "pentest", "ctf", "cybersecurity"},
+        "devops": {"docker", "kubernetes", "k8s", "terraform", "ci", "cd", "deploy",
+                   "cloud", "aws", "gcp", "azure", "devops", "linux", "infra", "helm"},
+        "data": {"database", "sql", "postgres", "redis", "mongo", "data", "pipeline",
+                 "etl", "analytics", "warehouse", "spark", "kafka", "streaming"},
+        "lang": {"rust", "go", "golang", "python", "java", "c++", "zig", "mojo",
+                 "compiler", "language", "parser"},
+    }
+
+    def _matches_topic(self, item: IntelItem, topic: str) -> bool:
+        """Check if an item matches a topic filter."""
+        keywords = self.TOPIC_KEYWORDS.get(topic.lower(), set())
+        if not keywords:
+            return True  # Unknown topic, don't filter
+
+        text = f"{item.title} {item.description} {' '.join(item.tags)}".lower()
+        return any(kw in text for kw in keywords)
+
+    def check_health(self) -> dict[str, dict]:
+        """Check connectivity and responsiveness of all data sources.
+
+        Returns a dict mapping source name to health info.
+        """
+        results = {}
+
+        def _check_one(name: str) -> tuple[str, dict]:
+            source = self.sources.get(name)
+            if not source:
+                return name, {"status": "disabled", "latency_ms": 0, "error": None}
+
+            start = time.monotonic()
+            try:
+                items = source.fetch(limit=3)
+                elapsed = (time.monotonic() - start) * 1000
+                return name, {
+                    "status": "ok" if items else "empty",
+                    "latency_ms": round(elapsed),
+                    "items_fetched": len(items),
+                    "error": None,
+                }
+            except Exception as e:
+                elapsed = (time.monotonic() - start) * 1000
+                return name, {
+                    "status": "error",
+                    "latency_ms": round(elapsed),
+                    "items_fetched": 0,
+                    "error": str(e),
+                }
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+            futures = {pool.submit(_check_one, name): name for name in self.sources}
+            for future in concurrent.futures.as_completed(futures):
+                name, info = future.result()
+                results[name] = info
+
+        return results

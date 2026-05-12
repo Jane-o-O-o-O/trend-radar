@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-green.svg)]()
-[![Tests](https://img.shields.io/badge/tests-154%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-215%20passed-brightgreen.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 [![PyPI](https://img.shields.io/pypi/v/trend-radar?color=blue)](https://pypi.org/project/trend-radar/)
 
@@ -49,7 +49,7 @@ pip install trend-radar
 # Install with all features (web dashboard + interactive shell)
 pip install trend-radar[all]
 
-# Fetch from all sources
+# Fetch from all sources (parallel by default!)
 trend-radar fetch
 
 # AI-focused intelligence
@@ -57,6 +57,18 @@ trend-radar ai
 
 # Search for a topic
 trend-radar search "MCP server"
+
+# Filter by topic
+trend-radar fetch --topic ai
+
+# Compare trends (rising/falling)
+trend-radar diff
+
+# Quick top items
+trend-radar top --topic ai -n 10
+
+# Check source health
+trend-radar health
 
 # Interactive shell (REPL mode)
 trend-radar shell
@@ -69,6 +81,10 @@ trend-radar fetch --html -o dashboard.html
 
 # Export as CSV
 trend-radar fetch --csv -o trends.csv
+
+# Docker (web dashboard)
+docker build -t trend-radar .
+docker run -p 8765:8765 trend-radar
 ```
 
 ## ✨ Features
@@ -76,7 +92,10 @@ trend-radar fetch --csv -o trends.csv
 | Feature | Description |
 |---------|-------------|
 | 🔍 **Multi-source aggregation** | GitHub, HN, Reddit, arXiv, RSS, Product Hunt |
+| ⚡ **Parallel fetching** | All sources fetched concurrently via ThreadPoolExecutor |
 | 🎨 **Beautiful terminal output** | Rich-powered tables, cards, compact layouts |
+| 📊 **Trend diff** | Compare snapshots — see rising/falling/new items |
+| 🏆 **Topic filtering** | Filter by AI, Web, Mobile, Security, DevOps, Data, Lang |
 | 🔑 **Trending keywords** | Auto-extracted keyword frequency analysis |
 | 📊 **History tracking** | SQLite-backed trend history with time-series |
 | 💾 **Two-level caching** | Memory TTL + disk SQLite cache |
@@ -85,6 +104,8 @@ trend-radar fetch --csv -o trends.csv
 | 💻 **Interactive shell** | prompt_toolkit REPL with tab completion |
 | 📄 **Export formats** | JSON, Markdown, HTML, CSV |
 | 🔄 **Watch mode** | Auto-refresh every N seconds |
+| 🏥 **Health checks** | Source connectivity and latency monitoring |
+| 🐳 **Docker ready** | One-command web dashboard deployment |
 | 🤖 **Hermes Agent** | Built-in AI agent tool integration |
 
 ## 📦 Data Sources
@@ -102,7 +123,7 @@ trend-radar fetch --csv -o trends.csv
 
 ```bash
 # Fetch trending intel
-trend-radar fetch                         # All sources, table layout
+trend-radar fetch                         # All sources, table layout (parallel!)
 trend-radar fetch -s github,hn            # Specific sources
 trend-radar fetch --layout cards          # Card layout
 trend-radar fetch --layout compact        # Compact single-line
@@ -114,6 +135,8 @@ trend-radar fetch --watch 30              # Auto-refresh every 30s
 trend-radar fetch -o dashboard.html       # Auto-detect format from extension
 trend-radar fetch -o trends.csv           # Save as CSV
 trend-radar fetch -o report.md            # Save as Markdown
+trend-radar fetch --topic ai              # Filter by topic
+trend-radar fetch --no-parallel           # Sequential (non-parallel) fetch
 
 # AI-focused intel
 trend-radar ai                            # AI/LLM across all sources
@@ -122,6 +145,18 @@ trend-radar ai --json                     # JSON output
 # Search
 trend-radar search "agent framework"      # Cross-source search
 trend-radar search "MCP" -s github,arxiv  # Search specific sources
+
+# Trend diff (rising/falling detection)
+trend-radar diff                          # Compare last two snapshots
+trend-radar diff --json                   # JSON output
+
+# Top items
+trend-radar top                           # Top 20 across all sources
+trend-radar top --topic ai -n 10          # Top 10 AI items
+trend-radar top --source github           # Top GitHub items only
+
+# Health check
+trend-radar health                        # Check all source connectivity
 
 # History & Analysis
 trend-radar history -h 48                 # Last 48h of data
@@ -164,6 +199,23 @@ curl http://localhost:8765/api/ai
 curl http://localhost:8765/api/search?q=MCP
 curl http://localhost:8765/api/keywords?days=7
 curl http://localhost:8765/api/stats
+curl http://localhost:8765/api/diff
+curl http://localhost:8765/api/top?limit=10&topic=ai
+curl http://localhost:8765/api/health
+```
+
+## 🐳 Docker
+
+```bash
+# Build and run the web dashboard
+docker build -t trend-radar .
+docker run -p 8765:8765 trend-radar
+
+# Fetch from CLI inside Docker
+docker run trend-radar fetch --json
+
+# With persistent data volume
+docker run -v trend-data:/data trend-radar serve --host 0.0.0.0
 ```
 
 ## 💻 Interactive Shell
@@ -190,7 +242,7 @@ from trend_radar import TrendRadar
 
 radar = TrendRadar()
 
-# Fetch trending from all sources
+# Fetch trending from all sources (parallel!)
 snapshot = radar.collect(sources=["github", "hackernews"], limit=10)
 print(f"Got {snapshot.item_count} items")
 
@@ -207,6 +259,19 @@ snapshot = radar.collect_ai_focused(limit=15)
 
 # Search
 items = radar.search("MCP server", limit=20)
+
+# Trend diff (rising/falling)
+diff = radar.diff_snapshots()
+for item in diff["rising"][:5]:
+    print(f"  🔺 {item['title']} (+{item['score_delta']})")
+
+# Topic-filtered top items
+items = radar.get_top_items(limit=10, topic="ai")
+
+# Health check
+health = radar.check_health()
+for name, info in health.items():
+    print(f"  {name}: {info['status']} ({info['latency_ms']}ms)")
 
 # Analysis
 analysis = radar.analyze_opportunities(snapshot)
@@ -327,7 +392,10 @@ pytest
 | Feature | Trend Radar | starcli | hn-cli | newsboat |
 |---------|:-----------:|:------:|:------:|:--------:|
 | Multi-source | ✅ 6 sources | GitHub only | HN only | RSS only |
+| Parallel fetching | ✅ ThreadPool | ❌ | ❌ | ❌ |
 | Terminal UI | ✅ Rich | ✅ | ❌ | ✅ |
+| Trend diff | ✅ Rising/falling | ❌ | ❌ | ❌ |
+| Topic filtering | ✅ 7 topics | ❌ | ❌ | ❌ |
 | Web dashboard | ✅ FastAPI | ❌ | ❌ | ❌ |
 | Interactive shell | ✅ REPL | ❌ | ❌ | ❌ |
 | History tracking | ✅ SQLite | ❌ | ❌ | ✅ |
@@ -335,6 +403,8 @@ pytest
 | HTML export | ✅ | ❌ | ❌ | ❌ |
 | CSV export | ✅ | ❌ | ❌ | ❌ |
 | Caching | ✅ Two-level | ❌ | ❌ | ❌ |
+| Health checks | ✅ | ❌ | ❌ | ❌ |
+| Docker | ✅ | ❌ | ❌ | ❌ |
 | Python API | ✅ | ❌ | ❌ | ❌ |
 | AI agent tool | ✅ Hermes | ❌ | ❌ | ❌ |
 

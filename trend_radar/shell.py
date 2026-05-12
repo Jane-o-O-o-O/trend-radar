@@ -19,7 +19,7 @@ from rich.text import Text
 
 COMMANDS = [
     "fetch", "ai", "search", "keywords", "history", "stats",
-    "sources", "config", "help", "exit", "quit", "clear",
+    "diff", "top", "health", "sources", "config", "help", "exit", "quit", "clear",
 ]
 
 SHELL_STYLE = Style.from_dict({
@@ -93,6 +93,12 @@ def _print_welcome(console: Console):
     text.append("stats", style="bright_green")
     text.append(" · ", style="dim")
     text.append("sources", style="bright_green")
+    text.append(" · ", style="dim")
+    text.append("diff", style="bright_green")
+    text.append(" · ", style="dim")
+    text.append("top", style="bright_green")
+    text.append(" · ", style="dim")
+    text.append("health", style="bright_green")
     text.append(" · ", style="dim")
     text.append("config", style="bright_green")
     text.append(" · ", style="dim")
@@ -230,6 +236,31 @@ def _dispatch(command: str, args: list[str], radar, console: Console):
         console.print("\n[bold]⚙️ Configuration[/]\n")
         console.print(yaml.dump(radar.config._config, default_flow_style=False, sort_keys=False))
 
+    elif command == "diff":
+        with console.status("[bold bright_cyan]📊 Computing diff...[/]"):
+            diff_data = radar.diff_snapshots()
+        renderer.render_diff(diff_data)
+
+    elif command == "top":
+        limit = 20
+        topic = None
+        source = None
+        for i, arg in enumerate(args):
+            if arg == "--limit" and i + 1 < len(args):
+                limit = int(args[i + 1])
+            elif arg == "--topic" and i + 1 < len(args):
+                topic = args[i + 1]
+            elif arg == "--source" and i + 1 < len(args):
+                source = args[i + 1]
+        items = radar.get_top_items(limit=limit, source=source, topic=topic)
+        topic_label = f" [{topic}]" if topic else ""
+        renderer.render_items(items, title=f"🏆 Top {limit}{topic_label}")
+
+    elif command == "health":
+        with console.status("[bold bright_cyan]🏥 Checking sources...[/]"):
+            results = radar.check_health()
+        renderer.render_health(results)
+
     else:
         console.print(f"[yellow]Unknown command:[/yellow] {command}")
         console.print("[dim]Type 'help' for available commands.[/dim]")
@@ -254,6 +285,15 @@ def _show_help(console: Console):
 
 [bold bright_green]history[/] [--hours N]
     Show items from recent history.
+
+[bold bright_green]diff[/]
+    Compare latest two snapshots — show rising/falling trends.
+
+[bold bright_green]top[/] [--limit N] [--topic ai] [--source github]
+    Quick view of top trending items.
+
+[bold bright_green]health[/]
+    Check data source connectivity and response times.
 
 [bold bright_green]stats[/]
     Show database and cache statistics.

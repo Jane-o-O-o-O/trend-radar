@@ -100,6 +100,32 @@ def create_app(radar=None, host: str = "127.0.0.1", port: int = 8765):
             for name, cls in SOURCE_CLASSES.items()
         })
 
+    @app.get("/api/diff")
+    async def api_diff():
+        """Compare latest two snapshots — show rising/falling trends."""
+        diff_data = _radar.diff_snapshots()
+        return JSONResponse(json.loads(json.dumps(diff_data, default=str)))
+
+    @app.get("/api/health")
+    async def api_health():
+        """Check data source connectivity and response times."""
+        results = _radar.check_health()
+        return JSONResponse(results)
+
+    @app.get("/api/top")
+    async def api_top(
+        limit: int = Query(20, ge=1, le=100),
+        hours: int = Query(24, ge=1, le=720),
+        source: Optional[str] = Query(None),
+        topic: Optional[str] = Query(None),
+    ):
+        """Get top trending items."""
+        items = _radar.get_top_items(limit=limit, hours=hours, source=source, topic=topic)
+        return JSONResponse({
+            "count": len(items),
+            "items": [item.to_dict() for item in items],
+        })
+
     return app
 
 

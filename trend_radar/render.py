@@ -416,6 +416,157 @@ class TerminalRenderer:
 
         self.console.print()
 
+    def render_diff(self, diff_data: dict):
+        """Render a trend diff showing rising, falling, new, and gone items."""
+        self.console.print()
+
+        # Header
+        current_ts = diff_data.get("current_ts", "")[:19]
+        previous_ts = diff_data.get("previous_ts", "")[:19]
+        current_count = diff_data.get("current_count", 0)
+        previous_count = diff_data.get("previous_count", 0)
+
+        self.console.print(
+            Panel(
+                f"[bold bright_cyan]📊 Trend Diff[/]\n"
+                f"[dim]Previous:[/] {previous_ts} ({previous_count} items) → "
+                f"[dim]Current:[/] {current_ts} ({current_count} items)",
+                border_style="bright_cyan",
+                padding=(0, 2),
+            )
+        )
+
+        # Rising items
+        rising = diff_data.get("rising", [])
+        if rising:
+            self.console.print()
+            table = Table(
+                show_lines=False, expand=True, border_style="green",
+                header_style="bold green",
+            )
+            table.add_column("#", style="dim", width=3, justify="right")
+            table.add_column("Title", style="bright_white", ratio=3)
+            table.add_column("Source", style="dim", width=12)
+            table.add_column("Score", justify="right", width=10)
+            table.add_column("Change", justify="right", width=10)
+
+            for i, item in enumerate(rising[:15], 1):
+                delta = item.get("score_delta", 0)
+                table.add_row(
+                    str(i),
+                    item.get("title", ""),
+                    item.get("source", ""),
+                    str(item.get("score", 0)),
+                    f"[bold green]+{delta:,}[/]" if delta > 0 else str(delta),
+                )
+            self.console.print(Panel(table, title="[bold green]🔺 Rising[/]", border_style="green", padding=(0, 0)))
+
+        # Falling items
+        falling = diff_data.get("falling", [])
+        if falling:
+            self.console.print()
+            table = Table(
+                show_lines=False, expand=True, border_style="red",
+                header_style="bold red",
+            )
+            table.add_column("#", style="dim", width=3, justify="right")
+            table.add_column("Title", style="bright_white", ratio=3)
+            table.add_column("Source", style="dim", width=12)
+            table.add_column("Score", justify="right", width=10)
+            table.add_column("Change", justify="right", width=10)
+
+            for i, item in enumerate(falling[:15], 1):
+                delta = item.get("score_delta", 0)
+                table.add_row(
+                    str(i),
+                    item.get("title", ""),
+                    item.get("source", ""),
+                    str(item.get("score", 0)),
+                    f"[bold red]{delta:,}[/]" if delta < 0 else str(delta),
+                )
+            self.console.print(Panel(table, title="[bold red]🔻 Falling[/]", border_style="red", padding=(0, 0)))
+
+        # New items
+        new_items = diff_data.get("new", [])
+        if new_items:
+            self.console.print()
+            table = Table(
+                show_lines=False, expand=True, border_style="cyan",
+                header_style="bold cyan",
+            )
+            table.add_column("#", style="dim", width=3, justify="right")
+            table.add_column("Title", style="bright_white", ratio=3)
+            table.add_column("Source", style="dim", width=12)
+            table.add_column("Score", justify="right", width=10)
+
+            for i, item in enumerate(new_items[:10], 1):
+                table.add_row(
+                    str(i),
+                    item.get("title", ""),
+                    item.get("source", ""),
+                    str(item.get("score", 0)),
+                )
+            self.console.print(Panel(table, title="[bold cyan]🆕 New[/]", border_style="cyan", padding=(0, 0)))
+
+        # Gone items
+        gone = diff_data.get("gone", [])
+        if gone:
+            self.console.print()
+            self.console.print(f"  [dim]💨 {len(gone)} items dropped from previous snapshot[/dim]")
+
+        if not rising and not falling and not new_items:
+            self.console.print("[dim]No changes detected or insufficient history. Run 'trend-radar fetch' twice to build history.[/dim]")
+
+        self.console.print()
+
+    def render_health(self, health_data: dict[str, dict]):
+        """Render source health check results."""
+        self.console.print()
+        table = Table(
+            title="🏥 Source Health Check",
+            show_lines=False,
+            border_style="bright_blue",
+            header_style="bold bright_white on grey11",
+        )
+        table.add_column("", width=3)
+        table.add_column("Source", style="bold", width=15)
+        table.add_column("Status", justify="center", width=12)
+        table.add_column("Latency", justify="right", width=10)
+        table.add_column("Items", justify="right", width=8)
+        table.add_column("Error", style="dim", ratio=2)
+
+        for name, info in sorted(health_data.items()):
+            try:
+                src_type = SourceType(name)
+                emoji = SOURCE_EMOJI.get(src_type, "•")
+            except ValueError:
+                emoji = "•"
+
+            status = info.get("status", "unknown")
+            if status == "ok":
+                status_text = "[green]✓ OK[/]"
+            elif status == "empty":
+                status_text = "[yellow]⚠ Empty[/]"
+            elif status == "disabled":
+                status_text = "[dim]⊘ Off[/]"
+            else:
+                status_text = "[red]✗ Error[/]"
+
+            latency = info.get("latency_ms", 0)
+            latency_text = f"{latency}ms"
+            if latency > 5000:
+                latency_text = f"[red]{latency}ms[/]"
+            elif latency > 2000:
+                latency_text = f"[yellow]{latency}ms[/]"
+
+            items_count = info.get("items_fetched", 0)
+            error = info.get("error", "") or ""
+
+            table.add_row(emoji, name, status_text, latency_text, str(items_count), error[:60])
+
+        self.console.print(table)
+        self.console.print()
+
 
 class JsonRenderer:
     """Renders trend data as JSON."""

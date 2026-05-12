@@ -2,6 +2,50 @@
 
 All notable changes to Trend Radar are documented here.
 
+## [0.5.0] — 2026-05-13
+
+### ✨ New Features
+- **Parallel source fetching** — All data sources now fetched concurrently via ThreadPoolExecutor (3-5x faster!)
+- **`trend-radar diff`** — Compare latest two snapshots to detect rising, falling, new, and gone trends
+- **`trend-radar top`** — Quick view of top trending items with topic/source filtering
+- **`trend-radar health`** — Check data source connectivity and response latency
+- **Topic filtering** — `--topic` flag filters by AI, Web, Mobile, Security, DevOps, Data, or Lang
+- **Docker support** — Dockerfile for one-command web dashboard deployment
+
+### 🎨 Visual Improvements
+- Trend diff renderer with rising (🔺), falling (🔻), new (🆕), and gone (💨) sections
+- Health check renderer with latency display and status indicators
+- Both new renderers use color-coded Rich panels
+
+### 🌐 Web API
+- `/api/diff` — Trend diff endpoint
+- `/api/health` — Source health check endpoint
+- `/api/top` — Top items with topic/source/limit filtering
+
+### 💻 Shell
+- New shell commands: `diff`, `top`, `health`
+- Tab completion updated for all new commands
+
+### 🏗️ Architecture
+- `TrendRadar.collect()` now accepts `parallel=True` parameter
+- `TrendRadar.diff_snapshots()` — Snapshot diff engine
+- `TrendRadar.get_top_items()` — Topic-filtered top items
+- `TrendRadar.check_health()` — Source health checker
+- `TrendRadar._matches_topic()` — Topic keyword matcher (7 topics)
+- `TrendStore.get_snapshot_items()` — Per-snapshot item retrieval
+- `TerminalRenderer.render_diff()` — Diff visualization
+- `TerminalRenderer.render_health()` — Health check visualization
+
+### 🧪 Tests
+- **215 tests** (up from 154, +40%)
+- New test files: `test_v050_features.py`, `test_cli_v050.py`, `test_web_v050.py`
+- Tests for concurrent fetching, diff, top, health, topic filtering, Dockerfile
+
+### 📦 Infrastructure
+- Dockerfile added (Python 3.12 slim, pip install trend-radar[all])
+- `.dockerignore` added
+- Version bumped to 0.5.0
+
 ## [0.4.0] — 2026-05-12
 
 ### ✨ New Features

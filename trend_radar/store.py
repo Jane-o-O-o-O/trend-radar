@@ -166,3 +166,14 @@ class TrendStore:
             "sources": [s[0] for s in sources],
             "latest_snapshot": latest,
         }
+
+    def get_snapshot_items(self, snapshot_id: int) -> list[dict]:
+        """Get all items for a specific snapshot."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """SELECT title, source, url, description, score, author, tags, fetched_at, extra
+                FROM items WHERE snapshot_id = ?""",
+                (snapshot_id,),
+            ).fetchall()
+            return [dict(r) for r in rows]
