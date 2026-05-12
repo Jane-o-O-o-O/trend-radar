@@ -1,6 +1,8 @@
 # 📡 Trend Radar
 
-> **Multi-source tech intelligence CLI** — See what's hot before everyone else.
+**Multi-source tech intelligence CLI — GitHub/HN/Reddit/arXiv/RSS/Product Hunt in one command.**
+
+> See what's trending before everyone else. No browser tabs, no doom-scrolling.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-green.svg)]()
@@ -9,6 +11,17 @@
 [![PyPI](https://img.shields.io/pypi/v/trend-radar?color=blue)](https://pypi.org/project/trend-radar/)
 
 **One command. Six sources. Zero doom-scrolling.**
+
+### Why Trend Radar?
+
+| Feature | Hacker News Only | GitHub Trending | Trend Radar |
+|---------|-----------------|-----------------|-------------|
+| Sources | 1 | 1 | **6** (GitHub + HN + Reddit + arXiv + RSS + Product Hunt) |
+| Keyword tracking | ❌ | ❌ | ✅ Historical trends |
+| Web dashboard | ❌ | ❌ | ✅ Interactive charts |
+| JSON/CSV export | ❌ | ❌ | ✅ |
+| Interactive shell | ❌ | ❌ | ✅ |
+| Self-contained | ❌ | ❌ | ✅ No API keys needed |
 
 Trend Radar aggregates tech trends from **GitHub**, **Hacker News**, **Reddit**, **arXiv**, **RSS feeds**, and **Product Hunt** into a single, beautiful terminal dashboard. Track keywords over time, search across all sources, and never miss what's trending.
 
