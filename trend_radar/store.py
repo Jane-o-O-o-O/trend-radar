@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from trend_radar.models import IntelItem, SourceType, TrendSnapshot
+from trend_radar.models import IntelItem, SourceType, TrendSnapshot, STOP_WORDS
 
 
 def get_default_db_path() -> str:
@@ -146,14 +146,9 @@ class TrendStore:
             ).fetchall()
 
         words = Counter()
-        stop = {"the", "a", "an", "is", "are", "and", "or", "but", "in", "on", "at",
-                "to", "for", "of", "with", "by", "from", "this", "that", "it", "as",
-                "new", "how", "what", "your", "you", "my", "we", "our", "open", "source",
-                "free", "github", "just", "like", "get", "can", "use", "not", "has", "have",
-                "was", "were", "been", "will", "would", "could", "should", "all", "more"}
         for (title,) in rows:
             for w in re.findall(r"[a-zA-Z]{3,}", title.lower()):
-                if w not in stop:
+                if w not in STOP_WORDS:
                     words[w] += 1
         return words.most_common(30)
 

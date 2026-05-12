@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-green.svg)]()
-[![Tests](https://img.shields.io/badge/tests-72%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-125%20passed-brightgreen.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 
 **One command. Six sources. Zero doom-scrolling.**
@@ -62,6 +62,10 @@ trend-radar keywords
 
 # Database stats
 trend-radar stats
+
+# Save output to file
+trend-radar fetch --json -o trends.json
+trend-radar fetch --markdown -o trends.md
 ```
 
 ## 📦 Data Sources
@@ -86,6 +90,7 @@ trend-radar fetch --layout compact        # Compact single-line
 trend-radar fetch --json                  # JSON output (for scripting)
 trend-radar fetch --markdown              # Markdown output
 trend-radar fetch --watch 30              # Auto-refresh every 30s
+trend-radar fetch --json -o out.json      # Save to file
 
 # AI-focused intel
 trend-radar ai                            # AI/LLM across all sources

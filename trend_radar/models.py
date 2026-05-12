@@ -6,6 +6,18 @@ from enum import Enum
 from typing import Optional
 
 
+STOP_WORDS: set[str] = {
+    "the", "a", "an", "is", "are", "was", "were", "be", "been",
+    "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
+    "by", "from", "this", "that", "it", "as", "can", "do", "does",
+    "not", "no", "have", "has", "had", "will", "would", "could",
+    "should", "may", "might", "new", "how", "what", "when", "where",
+    "who", "which", "why", "your", "you", "my", "we", "our",
+    "open", "source", "free", "github", "just", "like", "get",
+    "use", "all", "more", "also", "one", "two",
+}
+
+
 class SourceType(str, Enum):
     GITHUB = "github"
     HACKERNEWS = "hackernews"
@@ -86,18 +98,9 @@ class TrendSnapshot:
         import re
 
         words = Counter()
-        stop_words = {
-            "the", "a", "an", "is", "are", "was", "were", "be", "been",
-            "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
-            "by", "from", "this", "that", "it", "as", "can", "do", "does",
-            "not", "no", "have", "has", "had", "will", "would", "could",
-            "should", "may", "might", "new", "how", "what", "when", "where",
-            "who", "which", "why", "your", "you", "my", "we", "our",
-            "open", "source", "free", "github", "just", "like", "get",
-        }
         for item in self.items:
             tokens = re.findall(r"[a-zA-Z]{3,}", item.title.lower())
             for w in tokens:
-                if w not in stop_words and len(w) > 2:
+                if w not in STOP_WORDS and len(w) > 2:
                     words[w] += 1
         return words.most_common(top_n)

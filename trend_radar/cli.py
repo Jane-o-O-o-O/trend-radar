@@ -6,6 +6,7 @@ import time
 
 import click
 from rich.console import Console
+from rich.panel import Panel
 
 from .core import TrendRadar
 from .render import JsonRenderer, MarkdownRenderer, TerminalRenderer
@@ -20,7 +21,7 @@ def _get_console(ctx) -> Console:
 
 
 @click.group()
-@click.version_option("0.2.0")
+@click.version_option("0.3.0")
 @click.option("--db", default=None, help="Path to trends database")
 @click.option("--github-token", default=None, help="GitHub personal access token")
 @click.option("--config", "config_path", default=None, help="Path to config file")
@@ -50,8 +51,9 @@ def main(ctx, db, github_token, config_path, no_cache):
 @click.option("--markdown", "output_md", is_flag=True, help="Output as Markdown")
 @click.option("--watch", "-w", is_flag=False, type=int, default=0, help="Auto-refresh every N seconds (0=off)")
 @click.option("--no-banner", is_flag=True, help="Hide ASCII banner")
+@click.option("--output", "-o", "output_file", default=None, help="Write output to file")
 @click.pass_context
-def fetch(ctx, sources, limit, layout, output_json, output_md, watch, no_banner):
+def fetch(ctx, sources, limit, layout, output_json, output_md, watch, no_banner, output_file):
     """Fetch trending intel from all sources."""
     radar = _get_radar(ctx)
     console = _get_console(ctx)
@@ -62,11 +64,22 @@ def fetch(ctx, sources, limit, layout, output_json, output_md, watch, no_banner)
             snapshot = radar.collect(sources=source_list, limit=limit)
 
         if output_json:
-            click.echo(JsonRenderer().render(snapshot))
+            text = JsonRenderer().render(snapshot)
         elif output_md:
-            click.echo(MarkdownRenderer().render(snapshot))
+            text = MarkdownRenderer().render(snapshot)
         else:
-            TerminalRenderer(console, show_banner=not no_banner).render_snapshot(snapshot, layout=layout)
+            if output_file:
+                text = MarkdownRenderer().render(snapshot)
+            else:
+                TerminalRenderer(console, show_banner=not no_banner).render_snapshot(snapshot, layout=layout)
+                return
+
+        if output_file:
+            from pathlib import Path
+            Path(output_file).write_text(text, encoding="utf-8")
+            console.print(f"[green]✓[/] Output written to [bold]{output_file}[/]")
+        else:
+            click.echo(text)
 
     if watch > 0:
         try:
@@ -268,6 +281,7 @@ def sources_list(ctx):
     console = _get_console(ctx)
 
     from .core import SOURCE_CLASSES
+    from .models import SourceType
     from .render import SOURCE_EMOJI
 
     from rich.table import Table as RichTable

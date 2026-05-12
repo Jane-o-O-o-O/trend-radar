@@ -70,7 +70,7 @@ class RSSSource(DataSource):
         items = []
 
         # Try RSS format
-        for item_el in root.iter("item")[:limit]:
+        for item_el in list(root.iter("item"))[:limit]:
             title = (item_el.findtext("title") or "").strip()
             link = (item_el.findtext("link") or "").strip()
             desc = (item_el.findtext("description") or "").strip()[:300]
