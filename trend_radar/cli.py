@@ -21,7 +21,7 @@ def _get_console(ctx) -> Console:
 
 
 @click.group()
-@click.version_option("0.5.0")
+@click.version_option("0.6.0")
 @click.option("--db", default=None, help="Path to trends database")
 @click.option("--github-token", default=None, help="GitHub personal access token")
 @click.option("--config", "config_path", default=None, help="Path to config file")
@@ -444,6 +444,266 @@ def health(ctx):
     from .render import TerminalRenderer
     TerminalRenderer(console, show_banner=False).render_health(results)
 
+
+
+@main.command()
+@click.argument("keyword")
+@click.option("--threshold", "-t", default=1, help="Alert when keyword appears N+ times", type=int)
+@click.option("--source", "-s", default=None, help="Only watch specific source")
+@click.pass_context
+def alert_add(ctx, keyword, threshold, source):
+    """Add a keyword alert to watchlist."""
+    from .alerts import AlertStore
+    console = _get_console(ctx)
+    store = AlertStore()
+    alert = store.add_alert(keyword, threshold=threshold, source_filter=source)
+    console.print(f"[green]✓[/] Alert added: [bold]{keyword}[/] (threshold: {threshold})")
+
+
+@main.command()
+@click.pass_context
+def alert_list(ctx):
+    """List all configured alerts."""
+    from .alerts import AlertStore
+    from rich.table import Table as RichTable
+    console = _get_console(ctx)
+    store = AlertStore()
+    alerts = store.list_alerts()
+
+    if not alerts:
+        console.print("[dim]No alerts configured. Use 'trend-radar alert-add <keyword>' to add one.[/dim]")
+        return
+
+    tbl = RichTable(title="🔔 Trend Alerts", border_style="bright_blue")
+    tbl.add_column("Keyword", style="bold bright_cyan")
+    tbl.add_column("Threshold", justify="right")
+    tbl.add_column("Source", style="dim")
+    tbl.add_column("Triggered", justify="right")
+    tbl.add_column("Status")
+
+    for a in alerts:
+        status = "[green]✓ active[/]" if a.enabled else "[dim]disabled[/]"
+        tbl.add_row(a.keyword, str(a.threshold), a.source_filter or "all", str(a.triggered_count), status)
+
+    console.print(tbl)
+
+
+@main.command()
+@click.argument("keyword")
+@click.pass_context
+def alert_remove(ctx, keyword):
+    """Remove a keyword alert."""
+    from .alerts import AlertStore
+    console = _get_console(ctx)
+    store = AlertStore()
+    if store.remove_alert(keyword):
+        console.print(f"[green]✓[/] Removed alert: [bold]{keyword}[/]")
+    else:
+        console.print(f"[red]Alert not found:[/red] {keyword}")
+
+
+@main.command()
+@click.option("--sources", "-s", default=None, help="Comma-separated sources to check")
+@click.option("--limit", "-n", default=25, help="Items per source", type=int)
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.pass_context
+def alerts_check(ctx, sources, limit, output_json):
+    """Check current trends against alert watchlist."""
+    from .alerts import AlertStore
+    radar = _get_radar(ctx)
+    console = _get_console(ctx)
+    store = AlertStore()
+
+    source_list = sources.split(",") if sources else None
+    with console.status("[bold bright_cyan]🔔 Checking alerts...[/]"):
+        snapshot = radar.collect(sources=source_list, limit=limit, save=False)
+
+    items_dicts = [i.to_dict() for i in snapshot.items]
+    matches = store.check_alerts(items_dicts)
+
+    if output_json:
+        import json
+        click.echo(json.dumps([m.to_dict() for m in matches], indent=2, ensure_ascii=False))
+        return
+
+    if not matches:
+        console.print("[dim]No alerts triggered.[/dim]")
+        return
+
+    console.print()
+    from rich.table import Table as RichTable
+    for match in matches:
+        tbl = RichTable(
+            title=f"🔔 [bold bright_red]{match.alert.keyword}[/] — {match.count} matches",
+            border_style="bright_red",
+        )
+        tbl.add_column("#", style="dim", width=3)
+        tbl.add_column("Title", style="bright_white", ratio=3)
+        tbl.add_column("Source", style="dim", width=12)
+        tbl.add_column("Score", justify="right", width=10)
+
+        for i, item in enumerate(match.matching_items[:10], 1):
+            tbl.add_row(str(i), item.get("title", ""), item.get("source", ""), str(item.get("score", 0)))
+
+        console.print(tbl)
+
+    console.print()
+
+
+@main.command()
+@click.option("--hours", "-h", default=48, help="Hours of history to analyze", type=int)
+@click.option("--limit", "-n", default=20, help="Max items to show", type=int)
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.option("--no-banner", is_flag=True, help="Hide ASCII banner")
+@click.pass_context
+def momentum(ctx, hours, limit, output_json, no_banner):
+    """Show trend momentum — velocity and acceleration of trending items."""
+    from .momentum import analyze_snapshot_momentum
+    radar = _get_radar(ctx)
+    console = _get_console(ctx)
+
+    with console.status("[bold bright_cyan]📈 Analyzing momentum...[/]"):
+        data = analyze_snapshot_momentum(radar.store, hours=hours)
+
+    if output_json:
+        import json
+        click.echo(json.dumps([d.to_dict() for d in data[:limit]], indent=2))
+        return
+
+    if not data:
+        console.print("[dim]Not enough history. Run 'trend-radar fetch' at least twice.[/dim]")
+        return
+
+    from rich.table import Table as RichTable
+    tbl = RichTable(title="📈 Trend Momentum", border_style="bright_cyan", show_lines=True)
+    tbl.add_column("#", style="dim", width=3)
+    tbl.add_column("Title", style="bright_white", ratio=3)
+    tbl.add_column("Source", style="dim", width=10)
+    tbl.add_column("Score", justify="right", width=8)
+    tbl.add_column("Δ", justify="right", width=8)
+    tbl.add_column("Velocity/hr", justify="right", width=12)
+    tbl.add_column("Trajectory", justify="center", width=10)
+    tbl.add_column("24h Pred", justify="right", width=10)
+
+    trajectory_emoji = {
+        "viral": "🔥",
+        "rising": "🔺",
+        "stable": "➡️",
+        "falling": "🔻",
+        "dead": "💀",
+    }
+
+    for i, m in enumerate(data[:limit], 1):
+        emoji = trajectory_emoji.get(m.trajectory, "❓")
+        vel_str = f"+{m.velocity:.0f}" if m.velocity > 0 else f"{m.velocity:.0f}"
+        vel_style = "bright_green" if m.velocity > 0 else "red" if m.velocity < 0 else "dim"
+        delta_str = f"+{m.score_delta}" if m.score_delta > 0 else str(m.score_delta)
+
+        tbl.add_row(
+            str(i),
+            m.title[:60],
+            m.source,
+            str(m.current_score),
+            f"[{'green' if m.score_delta > 0 else 'red'}]{delta_str}[/]",
+            f"[{vel_style}]{vel_str}[/]",
+            f"{emoji} {m.trajectory}",
+            str(m.predicted_score_24h),
+        )
+
+    console.print()
+    console.print(tbl)
+    console.print()
+
+
+@main.command()
+@click.argument("file_path", type=click.Path(exists=True))
+@click.option("--merge/--replace", default=True, help="Merge with existing feeds or replace")
+@click.pass_context
+def opml_import(ctx, file_path, merge):
+    """Import RSS feeds from OPML/JSON/URL file."""
+    from .opml import import_feeds
+    radar = _get_radar(ctx)
+    console = _get_console(ctx)
+
+    try:
+        feeds = import_feeds(file_path)
+    except (FileNotFoundError, ValueError) as e:
+        console.print(f"[red]Error:[/red] {e}")
+        sys.exit(1)
+
+    if merge:
+        existing = radar.config.get("sources.rss.feeds", {}) or {}
+        existing.update(feeds)
+        radar.config.set("sources.rss.feeds", existing)
+    else:
+        radar.config.set("sources.rss.feeds", feeds)
+
+    radar.config.save()
+
+    console.print(f"[green]✓[/] Imported [bold]{len(feeds)}[/] RSS feeds from [bold]{file_path}[/]")
+    for name, url in list(feeds.items())[:10]:
+        console.print(f"  [dim]•[/] {name}: {url}")
+    if len(feeds) > 10:
+        console.print(f"  [dim]... and {len(feeds) - 10} more[/]")
+
+
+@main.command()
+@click.option("--limit", "-n", default=20, help="Max items", type=int)
+@click.option("--sources", "-s", default=None, help="Comma-separated sources")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.option("--no-banner", is_flag=True, help="Hide ASCII banner")
+@click.pass_context
+def ranked(ctx, limit, sources, output_json, no_banner):
+    """Cross-source normalized ranking — fair comparison across all sources."""
+    from .normalization import rank_cross_source, normalized_badge, enrich_with_normalized
+    from .render import SOURCE_EMOJI
+    radar = _get_radar(ctx)
+    console = _get_console(ctx)
+    source_list = sources.split(",") if sources else None
+
+    with console.status("[bold bright_cyan]🏆 Ranking across sources...[/]"):
+        snapshot = radar.collect(sources=source_list, limit=limit, save=False)
+
+    ranked_items = rank_cross_source(snapshot.items, top_n=limit)
+
+    if output_json:
+        import json
+        click.echo(json.dumps([i.to_dict() for i in ranked_items], indent=2))
+        return
+
+    if not ranked_items:
+        console.print("[dim]No items found.[/dim]")
+        return
+
+    from rich.table import Table as RichTable
+    from rich.text import Text
+
+    tbl = RichTable(title="🏆 Cross-Source Ranking (Normalized 0-100)", border_style="bright_cyan", show_lines=False)
+    tbl.add_column("#", style="dim", width=3)
+    tbl.add_column("", width=3)
+    tbl.add_column("Title", style="bright_white", ratio=3)
+    tbl.add_column("Source", style="dim", width=12)
+    tbl.add_column("Raw Score", justify="right", width=10)
+    tbl.add_column("Normalized", justify="right", width=12)
+
+    for i, item in enumerate(ranked_items, 1):
+        emoji = SOURCE_EMOJI.get(item.source, "•")
+        norm = item.extra.get("normalized_score", 0)
+        badge_emoji, badge_style = normalized_badge(norm)
+        score_display = item.score_display
+
+        tbl.add_row(
+            str(i),
+            emoji,
+            item.title[:60],
+            item.source.value,
+            score_display,
+            Text(f"{badge_emoji} {norm:.0f}", style=badge_style),
+        )
+
+    console.print()
+    console.print(tbl)
+    console.print()
 
 if __name__ == "__main__":
     main()

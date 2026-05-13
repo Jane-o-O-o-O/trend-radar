@@ -22,7 +22,7 @@ def create_app(radar=None, host: str = "127.0.0.1", port: int = 8765):
     app = FastAPI(
         title="Trend Radar",
         description="Multi-source tech intelligence dashboard",
-        version="0.4.0",
+        version="0.6.0",
     )
 
     _radar = radar or TrendRadar()
@@ -125,6 +125,65 @@ def create_app(radar=None, host: str = "127.0.0.1", port: int = 8765):
             "count": len(items),
             "items": [item.to_dict() for item in items],
         })
+
+
+    @app.get("/api/momentum")
+    async def api_momentum(
+        hours: int = Query(48, ge=1, le=720),
+        limit: int = Query(20, ge=1, le=100),
+    ):
+        """Get trend momentum — velocity and acceleration."""
+        from .momentum import analyze_snapshot_momentum
+        data = analyze_snapshot_momentum(_radar.store, hours=hours)
+        return JSONResponse([d.to_dict() for d in data[:limit]])
+
+    @app.get("/api/ranked")
+    async def api_ranked(
+        sources: Optional[str] = Query(None),
+        limit: int = Query(20, ge=1, le=100),
+    ):
+        """Get cross-source normalized ranking."""
+        from .normalization import rank_cross_source
+        source_list = sources.split(",") if sources else None
+        snapshot = _radar.collect(sources=source_list, limit=limit, save=False)
+        ranked_items = rank_cross_source(snapshot.items, top_n=limit)
+        return JSONResponse({
+            "count": len(ranked_items),
+            "items": [i.to_dict() for i in ranked_items],
+        })
+
+    @app.get("/api/alerts")
+    async def api_alerts_list():
+        """List all configured alerts."""
+        from .alerts import AlertStore
+        store = AlertStore()
+        return JSONResponse([a.to_dict() for a in store.list_alerts()])
+
+    @app.post("/api/alerts/add")
+    async def api_alerts_add(
+        keyword: str = Query(...),
+        threshold: int = Query(1, ge=1),
+        source: Optional[str] = Query(None),
+    ):
+        """Add a keyword alert."""
+        from .alerts import AlertStore
+        store = AlertStore()
+        alert = store.add_alert(keyword, threshold=threshold, source_filter=source)
+        return JSONResponse(alert.to_dict())
+
+    @app.get("/api/alerts/check")
+    async def api_alerts_check(
+        sources: Optional[str] = Query(None),
+        limit: int = Query(25, ge=1, le=100),
+    ):
+        """Check current trends against alerts."""
+        from .alerts import AlertStore
+        store = AlertStore()
+        source_list = sources.split(",") if sources else None
+        snapshot = _radar.collect(sources=source_list, limit=limit, save=False)
+        items_dicts = [i.to_dict() for i in snapshot.items]
+        matches = store.check_alerts(items_dicts)
+        return JSONResponse([m.to_dict() for m in matches])
 
     return app
 

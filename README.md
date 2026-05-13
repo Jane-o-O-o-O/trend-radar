@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-green.svg)]()
-[![Tests](https://img.shields.io/badge/tests-215%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-260%20passed-brightgreen.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 [![PyPI](https://img.shields.io/pypi/v/trend-radar?color=blue)](https://pypi.org/project/trend-radar/)
 
@@ -18,12 +18,25 @@
 |---------|-----------------|-----------------|-------------|
 | Sources | 1 | 1 | **6** (GitHub + HN + Reddit + arXiv + RSS + Product Hunt) |
 | Keyword tracking | ❌ | ❌ | ✅ Historical trends |
+| Score normalization | ❌ | ❌ | ✅ Cross-source 0-100 scale |
+| Trend momentum | ❌ | ❌ | ✅ Velocity + acceleration tracking |
+| Keyword alerts | ❌ | ❌ | ✅ Watchlist with threshold alerts |
+| OPML import | ❌ | ❌ | ✅ Import from Feedly/Inoreader |
 | Web dashboard | ❌ | ❌ | ✅ Interactive charts |
 | JSON/CSV export | ❌ | ❌ | ✅ |
 | Interactive shell | ❌ | ❌ | ✅ |
 | Self-contained | ❌ | ❌ | ✅ No API keys needed |
 
 Trend Radar aggregates tech trends from **GitHub**, **Hacker News**, **Reddit**, **arXiv**, **RSS feeds**, and **Product Hunt** into a single, beautiful terminal dashboard. Track keywords over time, search across all sources, and never miss what's trending.
+
+### 🆕 What's New in v0.6.0
+- **`trend-radar ranked`** — Cross-source normalized ranking (fair 0-100 comparison across GitHub, HN, Reddit)
+- **`trend-radar momentum`** — Trend velocity & acceleration tracking with 24h predictions
+- **`trend-radar alert-add`** — Keyword watchlist with threshold alerts
+- **`trend-radar opml-import`** — Import RSS feeds from OPML/JSON files
+- **Retry with exponential backoff** — Resilient API calls across all sources
+- **Async fetching** — True concurrent HTTP with asyncio
+- **260 tests** all passing |
 
 ```
 ╭──────────────────────────────────────────────────────────────────────╮
@@ -79,6 +92,19 @@ trend-radar diff
 
 # Quick top items
 trend-radar top --topic ai -n 10
+
+# Cross-source normalized ranking (fair comparison!)
+trend-radar ranked
+
+# Trend momentum — see velocity & acceleration
+trend-radar momentum
+
+# Set keyword alerts
+trend-radar alert-add "MCP server" --threshold 3
+trend-radar alerts-check
+
+# Import RSS feeds from OPML (Feedly, Inoreader export)
+trend-radar opml-import feeds.opml
 
 # Check source health
 trend-radar health

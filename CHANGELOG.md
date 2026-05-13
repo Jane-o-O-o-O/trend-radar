@@ -2,6 +2,36 @@
 
 All notable changes to Trend Radar are documented here.
 
+## [0.6.0] — 2026-05-13
+
+### ✨ New Features
+- **Cross-source score normalization** — `trend-radar ranked` command shows items on a fair 0-100 scale across all sources (logarithmic scaling per source type)
+- **Trend momentum tracking** — `trend-radar momentum` shows velocity, acceleration, and trajectory (viral/rising/stable/falling) for trending items, with 24h score predictions
+- **Keyword alerts / watchlist** — `trend-radar alert-add/ alert-list/ alert-remove/ alerts-check` commands to monitor keywords and get notified when trends emerge
+- **OPML import** — `trend-radar opml-import` imports RSS feeds from OPML, JSON, or URL list files (compatible with Feedly, Inoreader, etc.)
+- **Async source fetching** — `trend_radar.async_fetch` module for true concurrent HTTP with asyncio (faster than thread pool for I/O-bound workloads)
+- **Retry with exponential backoff** — `trend_radar.retry` module provides `@retry_with_backoff` decorator and `RobustHttpClient` for resilient API calls
+
+### 🌐 Web API Additions
+- `/api/momentum` — Trend momentum endpoint (velocity, acceleration, trajectory)
+- `/api/ranked` — Cross-source normalized ranking endpoint
+- `/api/alerts` — List all configured alerts
+- `/api/alerts/add` — Add keyword alert
+- `/api/alerts/check` — Check trends against alert watchlist
+
+### 🧪 Testing
+- **260 tests** (up from 215, +21%)
+- New test file: `test_v060_features.py` (45 tests) covering all new modules
+- Tests for: retry logic, normalization, momentum, alerts CRUD, OPML import, async fetch, CLI commands, web endpoints
+
+### 📦 New Modules
+- `trend_radar/retry.py` — Exponential backoff retry decorator + RobustHttpClient
+- `trend_radar/normalization.py` — Cross-source score normalization (logarithmic 0-100 scale)
+- `trend_radar/momentum.py` — Trend velocity/acceleration tracking + trajectory classification
+- `trend_radar/alerts.py` — Keyword alert system with SQLite storage
+- `trend_radar/opml.py` — OPML/JSON/URL feed import
+- `trend_radar/async_fetch.py` — Async concurrent source fetching
+
 ## [0.5.0] — 2026-05-13
 
 ### ✨ New Features
