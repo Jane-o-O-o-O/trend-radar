@@ -21,7 +21,7 @@ def _get_console(ctx) -> Console:
 
 
 @click.group()
-@click.version_option("0.7.0")
+@click.version_option("0.8.0")
 @click.option("--db", default=None, help="Path to trends database")
 @click.option("--github-token", default=None, help="GitHub personal access token")
 @click.option("--config", "config_path", default=None, help="Path to config file")
@@ -815,7 +815,7 @@ def version(ctx):
     tbl.add_column("Key", style="bold")
     tbl.add_column("Value")
 
-    tbl.add_row("Version", "0.7.0")
+    tbl.add_row("Version", "0.8.0")
     tbl.add_row("Python", platform.python_version())
     tbl.add_row("Platform", platform.platform())
     tbl.add_row("Sources", "GitHub, HN, Reddit, arXiv, RSS, Product Hunt")
@@ -836,6 +836,293 @@ def version(ctx):
     console.print()
 
 
+# ============================================================
+# v0.8.0 — Radar Chart, Bookmarks, Plugins, Compare, Completions
+# ============================================================
+
+@main.command()
+@click.option("--sources", "-s", default=None, help="Comma-separated sources")
+@click.option("--limit", "-n", default=25, help="Items per source", type=int)
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.pass_context
+def radar(ctx, sources, limit, output_json):
+    """Show topic distribution as a radar/spider chart."""
+    radar_inst = _get_radar(ctx)
+    console = _get_console(ctx)
+    source_list = sources.split(",") if sources else None
+
+    with console.status("[bold bright_cyan]📡 Building radar...[/]"):
+        snapshot = radar_inst.collect(sources=source_list, limit=limit, save=False)
+
+    if output_json:
+        from .radar_chart import compute_topic_distribution
+        dist = compute_topic_distribution(snapshot.items)
+        click.echo(json.dumps(dist, indent=2))
+        return
+
+    from .radar_chart import render_radar_chart, render_topic_breakdown
+    render_radar_chart(console, snapshot.items)
+    render_topic_breakdown(console, snapshot.items)
+
+
+@main.command()
+@click.argument("action", type=click.Choice(["add", "list", "search", "remove", "star", "export"]))
+@click.argument("target", required=False, default=None)
+@click.option("--source", "-s", default=None, help="Filter by source")
+@click.option("--starred", is_flag=True, help="Show only starred bookmarks")
+@click.option("--notes", "-n", default="", help="Notes for bookmark")
+@click.option("--limit", "-l", default=20, help="Max results", type=int)
+@click.pass_context
+def bookmark(ctx, action, target, source, starred, notes, limit):
+    """Manage bookmarks — save interesting items for later.
+
+    \b
+    Actions:
+      add <title>       Add a bookmark by title (searches latest snapshot)
+      list              List all bookmarks
+      search <query>    Search bookmarks
+      remove <id>       Remove bookmark by ID
+      star <id>         Toggle star on bookmark
+      export            Export bookmarks as JSON
+    """
+    from .bookmarks import BookmarkStore
+    radar_inst = _get_radar(ctx)
+    console = _get_console(ctx)
+    store = BookmarkStore(db_path=radar_inst.store.db_path)
+
+    if action == "add":
+        if not target:
+            console.print("[red]Error:[/red] Provide a title to bookmark")
+            return
+        # Find matching item in latest snapshot
+        from .models import IntelItem, SourceType
+        item = IntelItem(title=target, source=SourceType.RSS, description="", score=0)
+        bid = store.add(item, notes=notes)
+        console.print(f"[green]✓[/] Bookmarked [bold]{target}[/] (id: {bid})")
+
+    elif action == "list":
+        bookmarks = store.list_all(source=source, starred_only=starred, limit=limit)
+        if not bookmarks:
+            console.print("[dim]No bookmarks found.[/dim]")
+            return
+
+        from rich.table import Table as RichTable
+        tbl = RichTable(title="⭐ Bookmarks", border_style="bright_yellow")
+        tbl.add_column("ID", style="dim", width=4)
+        tbl.add_column("⭐", width=3)
+        tbl.add_column("Title", style="bright_white", ratio=3)
+        tbl.add_column("Source", style="dim", width=12)
+        tbl.add_column("Notes", style="dim", ratio=2)
+
+        for bm in bookmarks:
+            star = "★" if bm.get("starred") else " "
+            tbl.add_row(str(bm["id"]), star, bm["title"][:60], bm["source"], (bm.get("notes") or "")[:40])
+
+        console.print()
+        console.print(tbl)
+        console.print()
+
+    elif action == "search":
+        if not target:
+            console.print("[red]Error:[/red] Provide a search query")
+            return
+        results = store.search(target, limit=limit)
+        if not results:
+            console.print(f"[dim]No bookmarks matching '{target}'[/dim]")
+            return
+        for bm in results:
+            star = "★" if bm.get("starred") else " "
+            console.print(f"  {star} [bold]{bm['id']}[/] {bm['title']} [dim]({bm['source']})[/]")
+
+    elif action == "remove":
+        if not target:
+            console.print("[red]Error:[/red] Provide bookmark ID")
+            return
+        if store.remove(int(target)):
+            console.print(f"[green]✓[/] Removed bookmark {target}")
+        else:
+            console.print(f"[red]Bookmark not found:[/red] {target}")
+
+    elif action == "star":
+        if not target:
+            console.print("[red]Error:[/red] Provide bookmark ID")
+            return
+        new_state = store.toggle_star(int(target))
+        if new_state is not None:
+            label = "★ starred" if new_state else "☆ unstarred"
+            console.print(f"[green]✓[/] {label} bookmark {target}")
+        else:
+            console.print(f"[red]Bookmark not found:[/red] {target}")
+
+    elif action == "export":
+        data = store.export_json(limit=limit)
+        click.echo(data)
+
+
+@main.command()
+@click.argument("action", type=click.Choice(["list", "load", "info"]))
+@click.argument("name", required=False, default=None)
+@click.pass_context
+def plugins(ctx, action, name):
+    """Manage custom data source plugins.
+
+    \b
+    Actions:
+      list              List all registered plugins
+      load <dir>        Load plugins from a directory
+      info <name>       Show plugin details
+    """
+    from .plugins import PluginManager
+    console = _get_console(ctx)
+    manager = PluginManager()
+
+    if action == "list":
+        # Also load from default directory
+        manager.load_from_directory()
+        plugins_list = manager.list_plugins()
+
+        if not plugins_list:
+            console.print("[dim]No plugins registered.[/dim]")
+            console.print("[dim]Place .py files in ~/.trend-radar/plugins/ to add custom sources.[/dim]")
+            return
+
+        from rich.table import Table as RichTable
+        tbl = RichTable(title="🔌 Plugins", border_style="bright_magenta")
+        tbl.add_column("Name", style="bold bright_cyan")
+        tbl.add_column("Class", style="bright_white")
+        tbl.add_column("Module", style="dim")
+        tbl.add_column("Description", ratio=2)
+
+        for pname, info in plugins_list.items():
+            tbl.add_row(pname, info["class"], info["module"], info["doc"])
+
+        console.print()
+        console.print(tbl)
+        console.print()
+
+    elif action == "load":
+        if not name:
+            console.print("[red]Error:[/red] Provide a directory path")
+            return
+        manager = PluginManager(plugin_dirs=[name])
+        loaded = manager.load_from_directory()
+        if loaded:
+            console.print(f"[green]✓[/] Loaded {len(loaded)} plugin(s): {', '.join(loaded)}")
+        else:
+            console.print(f"[dim]No plugins found in {name}[/]")
+
+    elif action == "info":
+        if not name:
+            console.print("[red]Error:[/red] Provide a plugin name")
+            return
+        manager.load_from_directory()
+        plugins_list = manager.list_plugins()
+        if name in plugins_list:
+            info = plugins_list[name]
+            console.print(f"\n[bold]Plugin:[/] {name}")
+            console.print(f"[bold]Class:[/] {info['class']}")
+            console.print(f"[bold]Module:[/] {info['module']}")
+            console.print(f"[bold]Description:[/] {info['doc']}")
+        else:
+            console.print(f"[red]Plugin not found:[/red] {name}")
+
+
+@main.command()
+@click.option("--period1", "-p1", default=1, help="Days ago for first snapshot", type=int)
+@click.option("--period2", "-p2", default=0, help="Days ago for second snapshot (0=latest)", type=int)
+@click.option("--limit", "-n", default=20, help="Max items to show", type=int)
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.option("--no-banner", is_flag=True, help="Hide banner")
+@click.pass_context
+def compare(ctx, period1, period2, limit, output_json, no_banner):
+    """Compare trends between two time periods.
+
+    Shows what's rising, falling, new, and gone between snapshots.
+    By default compares the latest two snapshots.
+    """
+    radar_inst = _get_radar(ctx)
+    console = _get_console(ctx)
+
+    with console.status("[bold bright_cyan]📊 Comparing snapshots...[/]"):
+        diff_data = radar_inst.diff_snapshots()
+
+    if output_json:
+        click.echo(json.dumps(diff_data, indent=2, ensure_ascii=False, default=str))
+        return
+
+    from .render import TerminalRenderer
+    TerminalRenderer(console, show_banner=not no_banner).render_diff(diff_data)
+
+
+@main.command()
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
+@click.pass_context
+def completions(ctx, shell):
+    """Generate shell completion scripts.
+
+    \b
+    Usage:
+      eval "$(trend-radar completions bash)"
+      eval "$(trend-radar completions zsh)"
+      trend-radar completions fish > ~/.config/fish/completions/trend-radar.fish
+    """
+    if shell == "bash":
+        click.echo("_trend_radar_completion() {")
+        click.echo("  COMPREPLY=( $(compgen -W 'fetch ai search history keywords stats "
+                   "config-show config-set sources-list serve shell diff top health "
+                   "alert-add alert-list alert-remove alerts-check momentum opml-import "
+                   "ranked live digest init version radar bookmark plugins compare "
+                   "completions' -- ${COMP_WORDS[1]}) )")
+        click.echo("}")
+        click.echo("complete -F _trend_radar_completion trend-radar")
+        click.echo("complete -F _trend_radar_completion tr")
+    elif shell == "zsh":
+        click.echo("#compdef trend-radar tr")
+        click.echo("_trend_radar() {")
+        click.echo("  _arguments '1:command:(fetch ai search history keywords stats "
+                   "config-show config-set sources-list serve shell diff top health "
+                   "alert-add alert-list alert-remove alerts-check momentum opml-import "
+                   "ranked live digest init version radar bookmark plugins compare completions)'")
+        click.echo("}")
+        click.echo("_trend_radar")
+    elif shell == "fish":
+        click.echo("complete -c trend-radar -f")
+        cmds = ["fetch", "ai", "search", "history", "keywords", "stats",
+                "config-show", "config-set", "sources-list", "serve", "shell",
+                "diff", "top", "health", "alert-add", "alert-list", "alert-remove",
+                "alerts-check", "momentum", "opml-import", "ranked", "live",
+                "digest", "init", "version", "radar", "bookmark", "plugins",
+                "compare", "completions"]
+        for cmd in cmds:
+            click.echo(f"complete -c trend-radar -f -a '{cmd}'")
+        click.echo("complete -c tr -f")
+        for cmd in cmds:
+            click.echo(f"complete -c tr -f -a '{cmd}'")
+
+
+@main.command()
+@click.pass_context
+def rate_limits(ctx):
+    """Show API rate limiter status for all sources."""
+    from .rate_limiter import RateLimiterRegistry
+    console = _get_console(ctx)
+    registry = RateLimiterRegistry()
+    status = registry.status()
+
+    from rich.table import Table as RichTable
+    tbl = RichTable(title="⏱️ Rate Limits", border_style="bright_yellow")
+    tbl.add_column("Source", style="bold", width=15)
+    tbl.add_column("Capacity", justify="right", width=10)
+    tbl.add_column("Refill/sec", justify="right", width=12)
+    tbl.add_column("Available", justify="right", width=10)
+
+    for name, info in sorted(status.items()):
+        tbl.add_row(name, str(info["capacity"]), f"{info['refill_rate']:.1f}", str(info["available"]))
+
+    console.print()
+    console.print(tbl)
+    console.print()
+
+
 if __name__ == "__main__":
-    main()
     main()

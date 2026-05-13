@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-green.svg)]()
-[![Tests](https://img.shields.io/badge/tests-294%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-359%20passed-brightgreen.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 [![PyPI](https://img.shields.io/pypi/v/trend-radar?color=blue)](https://pypi.org/project/trend-radar/)
 
@@ -18,12 +18,16 @@
 |---------|-----------------|-----------------|-------------|
 | Sources | 1 | 1 | **6** (GitHub + HN + Reddit + arXiv + RSS + Product Hunt) |
 | Live dashboard | ❌ | ❌ | ✅ Real-time auto-refreshing terminal UI |
+| Radar chart | ❌ | ❌ | ✅ Topic distribution spider chart |
 | Keyword tracking | ❌ | ❌ | ✅ Historical trends |
 | Score normalization | ❌ | ❌ | ✅ Cross-source 0-100 scale |
 | Trend momentum | ❌ | ❌ | ✅ Velocity + acceleration tracking |
 | Keyword alerts | ❌ | ❌ | ✅ Watchlist with threshold alerts |
 | Digest reports | ❌ | ❌ | ✅ Shareable Markdown/HTML reports |
-| Setup wizard | ❌ | ❌ | ✅ Interactive first-run config |
+| Bookmarks | ❌ | ❌ | ✅ Save & star interesting items |
+| Plugin system | ❌ | ❌ | ✅ Custom data sources |
+| Rate limiting | ❌ | ❌ | ✅ Token bucket API throttling |
+| Shell completions | ❌ | ❌ | ✅ bash/zsh/fish |
 | Web dashboard | ❌ | ❌ | ✅ Chart.js visualizations |
 | JSON/CSV export | ❌ | ❌ | ✅ |
 | Interactive shell | ❌ | ❌ | ✅ |
@@ -31,7 +35,17 @@
 
 Trend Radar aggregates tech trends from **GitHub**, **Hacker News**, **Reddit**, **arXiv**, **RSS feeds**, and **Product Hunt** into a single, beautiful terminal dashboard. Track keywords over time, search across all sources, and never miss what's trending.
 
-### 🆕 What's New in v0.7.0
+### 🆕 What's New in v0.8.0
+- **`trend-radar radar`** — Topic distribution spider chart in terminal (AI, Web, Security, DevOps...)
+- **`trend-radar bookmark`** — Save, star, search, and export interesting items
+- **`trend-radar plugins`** — Custom data source plugin system (drop .py files in ~/.trend-radar/plugins/)
+- **`trend-radar compare`** — Compare trends between two time periods
+- **`trend-radar completions`** — Shell auto-completion for bash/zsh/fish
+- **`trend-radar rate-limits`** — View API rate limiter status for all sources
+- **Token bucket rate limiter** — Per-source API throttling to protect upstream APIs
+- **359 tests** all passing
+
+### Previous: v0.7.0
 - **`trend-radar live`** — Real-time auto-refreshing terminal dashboard (like `htop` for trends!)
 - **`trend-radar digest`** — Generate shareable Markdown/HTML trend reports
 - **`trend-radar init`** — Interactive first-run setup wizard
@@ -98,6 +112,9 @@ trend-radar digest --format html -o weekly-report.html
 # Search for a topic
 trend-radar search "MCP server"
 
+# Topic radar chart (AI, Web, Security, DevOps...)
+trend-radar radar
+
 # Compare trends (rising/falling)
 trend-radar diff
 
@@ -107,9 +124,25 @@ trend-radar ranked
 # Trend momentum — see velocity & acceleration
 trend-radar momentum
 
+# Bookmark interesting items
+trend-radar bookmark add "openai/codex-cli"
+trend-radar bookmark list
+trend-radar bookmark star 1
+
 # Set keyword alerts
 trend-radar alert-add "MCP server" --threshold 3
 trend-radar alerts-check
+
+# Plugin system (custom data sources)
+trend-radar plugins list
+trend-radar plugins load /path/to/plugins/
+
+# Shell auto-completion
+eval "$(trend-radar completions bash)"
+eval "$(trend-radar completions zsh)"
+
+# Check API rate limits
+trend-radar rate-limits
 
 # Check source health
 trend-radar health
@@ -133,11 +166,15 @@ docker run -p 8765:8765 trend-radar
 | Feature | Description |
 |---------|-------------|
 | 📡 **Live dashboard** | Real-time auto-refreshing terminal UI with Rich Live |
+| 🕸️ **Radar chart** | Topic distribution spider chart in terminal |
 | 🔍 **Multi-source aggregation** | GitHub, HN, Reddit, arXiv, RSS, Product Hunt |
 | ⚡ **Parallel fetching** | All sources fetched concurrently with progress tracking |
 | 🎨 **Beautiful terminal output** | Rich-powered tables, cards, compact layouts, sparklines |
 | 📊 **Trend diff** | Compare snapshots — see rising/falling/new items |
 | 📝 **Digest reports** | Generate shareable Markdown/HTML trend summaries |
+| ⭐ **Bookmarks** | Save, star, search, and export interesting items |
+| 🔌 **Plugin system** | Custom data source plugins (~/.trend-radar/plugins/) |
+| ⏱️ **Rate limiting** | Token bucket per-source API throttling |
 | 🏆 **Topic filtering** | Filter by AI, Web, Mobile, Security, DevOps, Data, Lang |
 | 🔑 **Trending keywords** | Auto-extracted keyword frequency with sparkline trends |
 | 📊 **History tracking** | SQLite-backed trend history with time-series |

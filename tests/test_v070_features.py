@@ -433,7 +433,7 @@ class TestCLIVersion:
     def test_version_in_cli(self):
         """CLI should have version 0.7.0."""
         from trend_radar import __version__
-        assert __version__ == "0.7.0"
+        assert __version__ == "0.8.0"
 
 
 # ── Web Dashboard Tests ──
