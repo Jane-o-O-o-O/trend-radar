@@ -155,6 +155,86 @@ class TrendRadar:
 
         return snapshot
 
+    def collect_with_progress(
+        self,
+        sources: list[str] | None = None,
+        limit: int = 25,
+        save: bool = True,
+        use_cache: bool = True,
+        parallel: bool = True,
+        max_workers: int = 6,
+        callback=None,
+        **kwargs,
+    ) -> TrendSnapshot:
+        """Collect intel with progress callbacks.
+
+        Args:
+            callback: Called with (event, data) where event is 'source_start',
+                      'source_done', 'source_error'. data contains source name and details.
+            ...other args same as collect()...
+
+        Returns:
+            TrendSnapshot with all collected items.
+        """
+        target_sources = sources or list(self.sources.keys())
+        snapshot = TrendSnapshot()
+
+        def _fetch_one(name: str) -> tuple[str, list[IntelItem], str | None]:
+            if callback:
+                callback("source_start", {"source": name})
+
+            source = self.sources.get(name)
+            if not source:
+                if callback:
+                    callback("source_error", {"source": name, "error": f"Unknown source: {name}"})
+                return name, [], f"Unknown source: {name}"
+
+            cache_key = None
+            if use_cache and self.cache:
+                cache_key = TrendCache.make_key(f"fetch:{name}", limit=limit, **kwargs)
+                cached = self.cache.get(cache_key)
+                if cached and isinstance(cached, list):
+                    items = [IntelItem(**d) for d in cached]
+                    if callback:
+                        callback("source_done", {"source": name, "items": len(items), "cached": True})
+                    return name, items, None
+
+            try:
+                items = source.fetch(limit=limit, **kwargs)
+                if cache_key and self.cache:
+                    self.cache.set(cache_key, [it.to_dict() for it in items])
+                if callback:
+                    callback("source_done", {"source": name, "items": len(items), "cached": False})
+                return name, items, None
+            except Exception as e:
+                if callback:
+                    callback("source_error", {"source": name, "error": str(e)})
+                return name, [], f"{name}: {e}"
+
+        if parallel and len(target_sources) > 1:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+                futures = {pool.submit(_fetch_one, name): name for name in target_sources}
+                for future in concurrent.futures.as_completed(futures):
+                    name, items, error = future.result()
+                    snapshot.items.extend(items)
+                    if items:
+                        snapshot.sources_queried.append(name)
+                    if error:
+                        snapshot.errors.append(error)
+        else:
+            for name in target_sources:
+                name, items, error = _fetch_one(name)
+                snapshot.items.extend(items)
+                if items:
+                    snapshot.sources_queried.append(name)
+                if error:
+                    snapshot.errors.append(error)
+
+        if save:
+            self.store.save_snapshot(snapshot)
+
+        return snapshot
+
     def collect_ai_focused(self, limit: int = 25, save: bool = True) -> TrendSnapshot:
         """Collect with AI/LLM focus across all sources."""
         snapshot = TrendSnapshot()

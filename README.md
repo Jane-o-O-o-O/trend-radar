@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-green.svg)]()
-[![Tests](https://img.shields.io/badge/tests-260%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-294%20passed-brightgreen.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 [![PyPI](https://img.shields.io/pypi/v/trend-radar?color=blue)](https://pypi.org/project/trend-radar/)
 
@@ -17,31 +17,35 @@
 | Feature | Hacker News Only | GitHub Trending | Trend Radar |
 |---------|-----------------|-----------------|-------------|
 | Sources | 1 | 1 | **6** (GitHub + HN + Reddit + arXiv + RSS + Product Hunt) |
+| Live dashboard | ❌ | ❌ | ✅ Real-time auto-refreshing terminal UI |
 | Keyword tracking | ❌ | ❌ | ✅ Historical trends |
 | Score normalization | ❌ | ❌ | ✅ Cross-source 0-100 scale |
 | Trend momentum | ❌ | ❌ | ✅ Velocity + acceleration tracking |
 | Keyword alerts | ❌ | ❌ | ✅ Watchlist with threshold alerts |
-| OPML import | ❌ | ❌ | ✅ Import from Feedly/Inoreader |
-| Web dashboard | ❌ | ❌ | ✅ Interactive charts |
+| Digest reports | ❌ | ❌ | ✅ Shareable Markdown/HTML reports |
+| Setup wizard | ❌ | ❌ | ✅ Interactive first-run config |
+| Web dashboard | ❌ | ❌ | ✅ Chart.js visualizations |
 | JSON/CSV export | ❌ | ❌ | ✅ |
 | Interactive shell | ❌ | ❌ | ✅ |
 | Self-contained | ❌ | ❌ | ✅ No API keys needed |
 
 Trend Radar aggregates tech trends from **GitHub**, **Hacker News**, **Reddit**, **arXiv**, **RSS feeds**, and **Product Hunt** into a single, beautiful terminal dashboard. Track keywords over time, search across all sources, and never miss what's trending.
 
-### 🆕 What's New in v0.6.0
-- **`trend-radar ranked`** — Cross-source normalized ranking (fair 0-100 comparison across GitHub, HN, Reddit)
-- **`trend-radar momentum`** — Trend velocity & acceleration tracking with 24h predictions
-- **`trend-radar alert-add`** — Keyword watchlist with threshold alerts
-- **`trend-radar opml-import`** — Import RSS feeds from OPML/JSON files
-- **Retry with exponential backoff** — Resilient API calls across all sources
-- **Async fetching** — True concurrent HTTP with asyncio
-- **260 tests** all passing |
+### 🆕 What's New in v0.7.0
+- **`trend-radar live`** — Real-time auto-refreshing terminal dashboard (like `htop` for trends!)
+- **`trend-radar digest`** — Generate shareable Markdown/HTML trend reports
+- **`trend-radar init`** — Interactive first-run setup wizard
+- **`trend-radar version`** — Show version and system info
+- **Enhanced web dashboard** — Chart.js doughnut/bar charts, new Diff view
+- **Source distribution visualization** — Visual breakdown in terminal
+- **Keyword sparkline trends** — Trend direction with Unicode sparklines
+- **Progress-aware fetching** — See per-source status with items count and cache hits
+- **294 tests** all passing |
 
 ```
 ╭──────────────────────────────────────────────────────────────────────╮
 │ 📡 Trend Radar                                                       │
-│ 2026-05-12 02:00 UTC                                                 │
+│ 2026-05-13 18:00 UTC                                                 │
 │ Sources: 🐙 github  🔶 hackernews  🤖 reddit  📄 arxiv  📡 rss       │
 │ Items: 67                                                            │
 ╰──────────────────────────────────────────────────────────────────────╯
@@ -75,25 +79,29 @@ pip install trend-radar
 # Install with all features (web dashboard + interactive shell)
 pip install trend-radar[all]
 
-# Fetch from all sources (parallel by default!)
+# First-time setup wizard (interactive)
+trend-radar init
+
+# Fetch from all sources (with per-source progress!)
 trend-radar fetch
+
+# Live auto-refreshing dashboard (Ctrl+C to stop)
+trend-radar live
 
 # AI-focused intelligence
 trend-radar ai
 
+# Generate a shareable digest report
+trend-radar digest
+trend-radar digest --format html -o weekly-report.html
+
 # Search for a topic
 trend-radar search "MCP server"
-
-# Filter by topic
-trend-radar fetch --topic ai
 
 # Compare trends (rising/falling)
 trend-radar diff
 
-# Quick top items
-trend-radar top --topic ai -n 10
-
-# Cross-source normalized ranking (fair comparison!)
+# Cross-source normalized ranking
 trend-radar ranked
 
 # Trend momentum — see velocity & acceleration
@@ -103,23 +111,17 @@ trend-radar momentum
 trend-radar alert-add "MCP server" --threshold 3
 trend-radar alerts-check
 
-# Import RSS feeds from OPML (Feedly, Inoreader export)
-trend-radar opml-import feeds.opml
-
 # Check source health
 trend-radar health
 
 # Interactive shell (REPL mode)
 trend-radar shell
 
-# Web dashboard
+# Web dashboard (with Chart.js visualizations!)
 trend-radar serve
 
 # Export as standalone HTML dashboard
 trend-radar fetch --html -o dashboard.html
-
-# Export as CSV
-trend-radar fetch --csv -o trends.csv
 
 # Docker (web dashboard)
 docker build -t trend-radar .
@@ -130,16 +132,19 @@ docker run -p 8765:8765 trend-radar
 
 | Feature | Description |
 |---------|-------------|
+| 📡 **Live dashboard** | Real-time auto-refreshing terminal UI with Rich Live |
 | 🔍 **Multi-source aggregation** | GitHub, HN, Reddit, arXiv, RSS, Product Hunt |
-| ⚡ **Parallel fetching** | All sources fetched concurrently via ThreadPoolExecutor |
-| 🎨 **Beautiful terminal output** | Rich-powered tables, cards, compact layouts |
+| ⚡ **Parallel fetching** | All sources fetched concurrently with progress tracking |
+| 🎨 **Beautiful terminal output** | Rich-powered tables, cards, compact layouts, sparklines |
 | 📊 **Trend diff** | Compare snapshots — see rising/falling/new items |
+| 📝 **Digest reports** | Generate shareable Markdown/HTML trend summaries |
 | 🏆 **Topic filtering** | Filter by AI, Web, Mobile, Security, DevOps, Data, Lang |
-| 🔑 **Trending keywords** | Auto-extracted keyword frequency analysis |
+| 🔑 **Trending keywords** | Auto-extracted keyword frequency with sparkline trends |
 | 📊 **History tracking** | SQLite-backed trend history with time-series |
-| 💾 **Two-level caching** | Memory TTL + disk SQLite cache |
+| 💾 **Two-level caching** | Memory TTL + disk SQLite cache (with cache-hit indicators) |
 | ⚙️ **YAML configuration** | `~/.trend-radar/config.yaml` for all settings |
-| 🌐 **Web dashboard** | FastAPI-powered web UI with real-time API |
+| 🧙 **Setup wizard** | Interactive `trend-radar init` for first-time users |
+| 🌐 **Web dashboard** | FastAPI + Chart.js visualizations |
 | 💻 **Interactive shell** | prompt_toolkit REPL with tab completion |
 | 📄 **Export formats** | JSON, Markdown, HTML, CSV |
 | 🔄 **Watch mode** | Auto-refresh every N seconds |
@@ -177,6 +182,18 @@ trend-radar fetch -o report.md            # Save as Markdown
 trend-radar fetch --topic ai              # Filter by topic
 trend-radar fetch --no-parallel           # Sequential (non-parallel) fetch
 
+# Live dashboard
+trend-radar live                          # Auto-refresh every 30s (default)
+trend-radar live -i 10                    # Refresh every 10s
+trend-radar live -s github,hn             # Specific sources only
+trend-radar live -n 20                    # 20 items per source
+
+# Digest reports
+trend-radar digest                        # Generate Markdown digest
+trend-radar digest --format html          # Generate HTML digest
+trend-radar digest -o report.html         # Save to file
+trend-radar digest --title "Weekly Report" # Custom title
+
 # AI-focused intel
 trend-radar ai                            # AI/LLM across all sources
 trend-radar ai --json                     # JSON output
@@ -211,15 +228,17 @@ trend-radar serve                         # Start web UI on :8765
 trend-radar serve -p 3000                 # Custom port
 
 # Configuration
+trend-radar init                          # Interactive setup wizard
 trend-radar config-show                   # Show current config
 trend-radar config-set sources.reddit.enabled false
 trend-radar config-set display.layout compact
 trend-radar sources-list                  # List all sources + status
+trend-radar version                       # Show version and system info
 ```
 
 ## 🌐 Web Dashboard
 
-Launch a beautiful web dashboard with real-time API:
+Launch a beautiful web dashboard with Chart.js visualizations:
 
 ```bash
 # Install web dependencies
@@ -229,10 +248,16 @@ pip install trend-radar[web]
 trend-radar serve --port 8765
 ```
 
-Then open `http://localhost:8765` for the interactive dashboard, or use the API directly:
+Then open `http://localhost:8765` for the interactive dashboard with:
+- 📊 **Source distribution** doughnut chart
+- 🔑 **Keyword frequency** bar chart
+- 📈 **Trend diff** view (rising/falling)
+- 🔍 **Search** across all sources
+- 📊 **Stats** overview with cache metrics
+
+Or use the API directly:
 
 ```bash
-# REST API endpoints
 curl http://localhost:8765/api/fetch
 curl http://localhost:8765/api/ai
 curl http://localhost:8765/api/search?q=MCP
@@ -241,6 +266,8 @@ curl http://localhost:8765/api/stats
 curl http://localhost:8765/api/diff
 curl http://localhost:8765/api/top?limit=10&topic=ai
 curl http://localhost:8765/api/health
+curl http://localhost:8765/api/momentum
+curl http://localhost:8765/api/ranked
 ```
 
 ## 🐳 Docker
@@ -312,9 +339,6 @@ health = radar.check_health()
 for name, info in health.items():
     print(f"  {name}: {info['status']} ({info['latency_ms']}ms)")
 
-# Analysis
-analysis = radar.analyze_opportunities(snapshot)
-
 # Export to HTML
 from trend_radar.exporters.html import HtmlRenderer
 html = HtmlRenderer().render(snapshot)
@@ -324,6 +348,11 @@ with open("dashboard.html", "w") as f:
 # Export to CSV
 from trend_radar.exporters.csv_export import CsvRenderer
 csv_data = CsvRenderer().render(snapshot)
+
+# Generate digest report
+from trend_radar import generate_digest_markdown, generate_digest_html
+md = generate_digest_markdown(snapshot, title="Weekly Tech Digest")
+html = generate_digest_html(snapshot)
 ```
 
 ## ⚙️ Configuration
@@ -380,10 +409,19 @@ trend_radar/
 ├── store.py             # SQLite storage for history tracking
 ├── cache.py             # Two-level cache (memory TTL + disk SQLite)
 ├── config.py            # YAML config system
-├── render.py            # Rich terminal renderer (tables, cards, compact)
+├── render.py            # Rich terminal renderer (tables, cards, compact, sparklines)
 ├── cli.py               # Click CLI with all commands
+├── live.py              # Live auto-refreshing terminal dashboard
+├── digest.py            # Shareable digest report generator (Markdown/HTML)
+├── init_wizard.py       # Interactive first-run setup wizard
 ├── shell.py             # Interactive REPL with prompt_toolkit
-├── web.py               # FastAPI web dashboard + REST API
+├── web.py               # FastAPI web dashboard + REST API + Chart.js
+├── normalization.py     # Cross-source score normalization (0-100)
+├── momentum.py          # Trend velocity & acceleration tracking
+├── alerts.py            # Keyword watchlist with threshold alerts
+├── opml.py              # OPML/JSON feed import
+├── async_fetch.py       # Async HTTP fetching with httpx
+├── retry.py             # Exponential backoff retry logic
 ├── exporters/
 │   ├── __init__.py
 │   ├── html.py          # Standalone HTML dashboard exporter
@@ -431,18 +469,21 @@ pytest
 | Feature | Trend Radar | starcli | hn-cli | newsboat |
 |---------|:-----------:|:------:|:------:|:--------:|
 | Multi-source | ✅ 6 sources | GitHub only | HN only | RSS only |
+| Live dashboard | ✅ Rich Live | ❌ | ❌ | ❌ |
 | Parallel fetching | ✅ ThreadPool | ❌ | ❌ | ❌ |
-| Terminal UI | ✅ Rich | ✅ | ❌ | ✅ |
+| Terminal UI | ✅ Rich + sparklines | ✅ | ❌ | ✅ |
 | Trend diff | ✅ Rising/falling | ❌ | ❌ | ❌ |
 | Topic filtering | ✅ 7 topics | ❌ | ❌ | ❌ |
-| Web dashboard | ✅ FastAPI | ❌ | ❌ | ❌ |
+| Digest reports | ✅ Markdown/HTML | ❌ | ❌ | ❌ |
+| Web dashboard | ✅ Chart.js | ❌ | ❌ | ❌ |
 | Interactive shell | ✅ REPL | ❌ | ❌ | ❌ |
 | History tracking | ✅ SQLite | ❌ | ❌ | ✅ |
-| Keyword trends | ✅ | ❌ | ❌ | ❌ |
+| Keyword trends | ✅ Sparklines | ❌ | ❌ | ❌ |
 | HTML export | ✅ | ❌ | ❌ | ❌ |
 | CSV export | ✅ | ❌ | ❌ | ❌ |
 | Caching | ✅ Two-level | ❌ | ❌ | ❌ |
 | Health checks | ✅ | ❌ | ❌ | ❌ |
+| Setup wizard | ✅ Interactive | ❌ | ❌ | ❌ |
 | Docker | ✅ | ❌ | ❌ | ❌ |
 | Python API | ✅ | ❌ | ❌ | ❌ |
 | AI agent tool | ✅ Hermes | ❌ | ❌ | ❌ |

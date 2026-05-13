@@ -4,7 +4,7 @@ Aggregate GitHub, Hacker News, Reddit, arXiv, RSS, and Product Hunt
 trends into a single beautiful terminal dashboard.
 """
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 from .core import TrendRadar
 from .models import IntelItem, SourceType, TrendSnapshot, STOP_WORDS
@@ -15,6 +15,9 @@ from .normalization import normalize_score, normalized_badge, rank_cross_source
 from .momentum import MomentumData, compute_momentum, analyze_snapshot_momentum
 from .alerts import AlertStore, Alert, AlertMatch
 from .opml import import_feeds, import_opml
+from .live import LiveDashboard
+from .digest import generate_digest_markdown, generate_digest_html
+from .init_wizard import run_init_wizard
 
 __all__ = [
     "TrendRadar",
@@ -38,4 +41,8 @@ __all__ = [
     "AlertMatch",
     "import_feeds",
     "import_opml",
+    "LiveDashboard",
+    "generate_digest_markdown",
+    "generate_digest_html",
+    "run_init_wizard",
 ]

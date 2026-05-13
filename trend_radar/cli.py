@@ -21,7 +21,7 @@ def _get_console(ctx) -> Console:
 
 
 @click.group()
-@click.version_option("0.6.0")
+@click.version_option("0.7.0")
 @click.option("--db", default=None, help="Path to trends database")
 @click.option("--github-token", default=None, help="GitHub personal access token")
 @click.option("--config", "config_path", default=None, help="Path to config file")
@@ -64,12 +64,43 @@ def fetch(ctx, sources, limit, layout, output_json, output_md, output_html, outp
     source_list = sources.split(",") if sources else None
 
     def do_fetch():
-        with console.status("[bold bright_cyan]📡 Fetching intel...[/]"):
-            snapshot = radar.collect(
-                sources=source_list,
-                limit=limit,
-                parallel=not no_parallel,
-            )
+        # Use progress-aware fetch for terminal output, plain collect for file outputs
+        is_terminal_output = not (output_json or output_md or output_html or output_csv or output_file)
+
+        if is_terminal_output:
+            from .render import SOURCE_EMOJI
+            from .models import SourceType
+
+            def progress_callback(event, data):
+                src = data.get("source", "")
+                try:
+                    st = SourceType(src) if src != "producthunt" else SourceType.PRODUCTHUNT
+                    emoji = SOURCE_EMOJI.get(st, "•")
+                except ValueError:
+                    emoji = "•"
+
+                if event == "source_done":
+                    n = data.get("items", 0)
+                    cached = " (cached)" if data.get("cached") else ""
+                    console.print(f"  [green]✓[/] {emoji} {src}: [bold]{n}[/] items{cached}")
+                elif event == "source_error":
+                    err = data.get("error", "")[:60]
+                    console.print(f"  [red]✗[/] {emoji} {src}: {err}")
+
+            with console.status("[bold bright_cyan]📡 Fetching intel from sources...[/]"):
+                snapshot = radar.collect_with_progress(
+                    sources=source_list,
+                    limit=limit,
+                    parallel=not no_parallel,
+                    callback=progress_callback,
+                )
+        else:
+            with console.status("[bold bright_cyan]📡 Fetching intel...[/]"):
+                snapshot = radar.collect(
+                    sources=source_list,
+                    limit=limit,
+                    parallel=not no_parallel,
+                )
 
         # Apply topic filter
         if topic and snapshot.items:
@@ -705,5 +736,106 @@ def ranked(ctx, limit, sources, output_json, no_banner):
     console.print(tbl)
     console.print()
 
+@main.command()
+@click.option("--sources", "-s", default=None, help="Comma-separated sources")
+@click.option("--limit", "-n", default=15, help="Items per source", type=int)
+@click.option("--interval", "-i", default=30, help="Refresh interval in seconds", type=int)
+@click.pass_context
+def live(ctx, sources, limit, interval):
+    """Live auto-refreshing terminal dashboard (Ctrl+C to stop)."""
+    from .live import LiveDashboard
+    radar = _get_radar(ctx)
+    console = _get_console(ctx)
+    source_list = sources.split(",") if sources else None
+
+    console.print("\n[bold bright_cyan]📡 Starting live dashboard...[/]")
+    console.print(f"[dim]Refreshing every {interval}s · Press Ctrl+C to stop[/]\n")
+
+    dashboard = LiveDashboard(radar, console, interval=interval)
+    dashboard.run(sources=source_list, limit=limit)
+
+
+@main.command()
+@click.option("--sources", "-s", default=None, help="Comma-separated sources")
+@click.option("--limit", "-n", default=15, help="Items per source", type=int)
+@click.option("--format", "-f", "fmt", type=click.Choice(["markdown", "html"]), default="markdown")
+@click.option("--title", "-t", default=None, help="Custom digest title")
+@click.option("--output", "-o", "output_file", default=None, help="Output file path")
+@click.pass_context
+def digest(ctx, sources, limit, fmt, title, output_file):
+    """Generate a shareable trend digest report."""
+    from .digest import generate_digest_markdown, generate_digest_html
+    radar = _get_radar(ctx)
+    console = _get_console(ctx)
+    source_list = sources.split(",") if sources else None
+
+    with console.status("[bold bright_cyan]📝 Generating digest...[/]"):
+        snapshot = radar.collect(sources=source_list, limit=limit, save=False)
+
+    if fmt == "html":
+        text = generate_digest_html(snapshot, title=title, top_n=limit)
+        default_ext = ".html"
+    else:
+        text = generate_digest_markdown(snapshot, title=title, top_n=limit)
+        default_ext = ".md"
+
+    if output_file:
+        from pathlib import Path
+        Path(output_file).write_text(text, encoding="utf-8")
+        console.print(f"[green]✓[/] Digest written to [bold]{output_file}[/]")
+    else:
+        # Auto-generate filename
+        ts = snapshot.timestamp.strftime("%Y%m%d_%H%M")
+        filename = f"trend-digest-{ts}{default_ext}"
+        from pathlib import Path
+        Path(filename).write_text(text, encoding="utf-8")
+        console.print(f"[green]✓[/] Digest written to [bold]{filename}[/]")
+        console.print(f"[dim]Share it on Slack, Discord, or social media![/]")
+
+
+@main.command()
+@click.option("--config", "config_path", default=None, help="Custom config file path")
+@click.pass_context
+def init(ctx, config_path):
+    """Interactive first-run setup wizard."""
+    from .init_wizard import run_init_wizard
+    console = _get_console(ctx)
+    run_init_wizard(console, config_path=config_path)
+
+
+@main.command()
+@click.pass_context
+def version(ctx):
+    """Show version and system info."""
+    import platform
+    console = _get_console(ctx)
+
+    from rich.table import Table as RichTable
+    tbl = RichTable(title="📡 Trend Radar", show_header=False, border_style="bright_cyan")
+    tbl.add_column("Key", style="bold")
+    tbl.add_column("Value")
+
+    tbl.add_row("Version", "0.7.0")
+    tbl.add_row("Python", platform.python_version())
+    tbl.add_row("Platform", platform.platform())
+    tbl.add_row("Sources", "GitHub, HN, Reddit, arXiv, RSS, Product Hunt")
+
+    # Check optional deps
+    deps = []
+    for pkg, label in [("fastapi", "Web"), ("uvicorn", "Web"), ("prompt_toolkit", "Shell"), ("rich", "Rich")]:
+        try:
+            __import__(pkg)
+            deps.append(f"✓ {label}")
+        except ImportError:
+            deps.append(f"✗ {label} (not installed)")
+
+    tbl.add_row("Features", "\n".join(deps))
+
+    console.print()
+    console.print(tbl)
+    console.print()
+
+
 if __name__ == "__main__":
+    main()
     main()

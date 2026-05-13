@@ -149,13 +149,15 @@ class TestFetchWithTopic:
 
     def test_fetch_with_topic(self, runner, mock_radar):
         """fetch --topic should filter items."""
-        mock_radar.collect.return_value = TrendSnapshot(
+        snap = TrendSnapshot(
             items=[
                 IntelItem(title="AI agent", source=SourceType.GITHUB, score=100, description="machine learning"),
                 IntelItem(title="React lib", source=SourceType.GITHUB, score=200, description="frontend"),
             ],
             sources_queried=["github"],
         )
+        mock_radar.collect.return_value = snap
+        mock_radar.collect_with_progress.return_value = snap
         mock_radar._matches_topic = lambda item, topic: topic == "ai" and "ai" in item.title.lower()
 
         result = runner.invoke(main, ["fetch", "--topic", "ai", "--no-banner"])
@@ -163,10 +165,9 @@ class TestFetchWithTopic:
 
     def test_fetch_with_no_concurrent(self, runner, mock_radar):
         """fetch --no-parallel should disable concurrent fetching."""
-        mock_radar.collect.return_value = TrendSnapshot(
-            items=[],
-            sources_queried=[],
-        )
+        snap = TrendSnapshot(items=[], sources_queried=[])
+        mock_radar.collect.return_value = snap
+        mock_radar.collect_with_progress.return_value = snap
         result = runner.invoke(main, ["fetch", "--no-parallel", "--no-banner"])
         assert result.exit_code == 0
 
