@@ -416,6 +416,111 @@ class TerminalRenderer:
 
         self.console.print()
 
+    def render_source_distribution(self, snapshot: TrendSnapshot):
+        """Render a visual source distribution chart — pie-style bar chart."""
+        by_source: dict[str, int] = {}
+        for item in snapshot.items:
+            src = item.source.value
+            by_source[src] = by_source.get(src, 0) + 1
+
+        if not by_source:
+            return
+
+        self.console.print()
+        self.console.print(Rule("[bold]📊 Source Distribution[/]", style="bright_blue"))
+
+        # ASCII art pie chart
+        total = sum(by_source.values())
+        colors = {
+            "github": "bright_white",
+            "hackernews": "yellow",
+            "reddit": "red",
+            "arxiv": "cyan",
+            "rss": "magenta",
+            "producthunt": "green",
+        }
+        emojis = {
+            "github": "🐙",
+            "hackernews": "🔶",
+            "reddit": "🤖",
+            "arxiv": "📄",
+            "rss": "📡",
+            "producthunt": "🚀",
+        }
+
+        dist_table = Table(show_header=False, show_lines=False, padding=(0, 1), expand=True)
+        dist_table.add_column("Source", width=18)
+        dist_table.add_column("Bar", ratio=2)
+        dist_table.add_column("Count", width=8, justify="right")
+        dist_table.add_column("Percent", width=8, justify="right")
+
+        max_count = max(by_source.values())
+        for src_name in ["github", "hackernews", "reddit", "arxiv", "rss", "producthunt"]:
+            count = by_source.get(src_name, 0)
+            if count == 0:
+                continue
+            emoji = emojis.get(src_name, "•")
+            color = colors.get(src_name, "dim")
+            pct = count / total * 100
+
+            # Gradient bar
+            bar_width = 30
+            filled = int(count / max_count * bar_width)
+            bar = Text()
+            bar.append("█" * filled, style=f"bold {color}")
+            bar.append("░" * (bar_width - filled), style="dim")
+
+            dist_table.add_row(
+                f"{emoji} [{color}]{src_name}[/]",
+                bar,
+                f"[bold]{count}[/]",
+                f"[dim]{pct:.0f}%[/]",
+            )
+
+        self.console.print(Panel(dist_table, border_style="bright_blue", padding=(0, 1)))
+
+    def render_keyword_trends(self, keyword_data: list[tuple[str, list[int], int]]):
+        """Render keyword trends with sparklines over time.
+
+        Args:
+            keyword_data: List of (keyword, historical_counts, current_count)
+        """
+        if not keyword_data:
+            return
+
+        self.console.print()
+        self.console.print(Rule("[bold]📈 Keyword Trends (Sparklines)[/]", style="bright_blue"))
+
+        tbl = Table(show_header=False, show_lines=False, padding=(0, 1), expand=True)
+        tbl.add_column("Keyword", style="bold", width=16)
+        tbl.add_column("Trend", width=20)
+        tbl.add_column("Current", width=8, justify="right")
+        tbl.add_column("Direction", width=8)
+
+        for word, history, current in keyword_data:
+            spark = sparkline(history, width=16)
+
+            # Direction indicator
+            if len(history) >= 2:
+                if history[-1] > history[-2]:
+                    direction = "[green]↑[/]"
+                elif history[-1] < history[-2]:
+                    direction = "[red]↓[/]"
+                else:
+                    direction = "[dim]→[/]"
+            else:
+                direction = "[dim]—[/]"
+
+            style = "bright_red" if current >= 5 else "bright_yellow" if current >= 3 else "bright_white"
+            tbl.add_row(
+                f"[{style}]{word}[/]",
+                f"[bright_cyan]{spark}[/]",
+                f"[bold]{current}[/]",
+                direction,
+            )
+
+        self.console.print(tbl)
+
     def render_diff(self, diff_data: dict):
         """Render a trend diff showing rising, falling, new, and gone items."""
         self.console.print()

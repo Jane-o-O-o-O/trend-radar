@@ -2,6 +2,36 @@
 
 All notable changes to Trend Radar are documented here.
 
+## [0.7.0] — 2026-05-13
+
+### ✨ New Features
+- **Live dashboard** — `trend-radar live` command for real-time auto-refreshing terminal dashboard (like `htop` for tech trends!)
+- **Digest reports** — `trend-radar digest` generates shareable Markdown/HTML trend summaries
+- **Setup wizard** — `trend-radar init` interactive first-run configuration wizard
+- **Version command** — `trend-radar version` shows version and system info
+- **Enhanced web dashboard** — Chart.js doughnut/bar charts, new Diff view, stats cards
+- **Source distribution visualization** — Visual breakdown in terminal with colored bars
+- **Keyword sparkline trends** — Unicode sparklines showing trend direction over time
+- **Progress-aware fetching** — Per-source status with item count and cache-hit indicators
+
+### 🌐 Web Dashboard Improvements
+- Chart.js integration — Source distribution doughnut chart + keyword bar chart
+- New Diff view — Rising/falling trends visualization
+- Stats cards — Snapshots, items, sources, cache metrics
+- Improved responsive design
+- Version display (v0.7.0)
+
+### 🧪 Testing
+- 34 new tests for v0.7.0 features (live, digest, init, progress, web dashboard)
+- Total: 294 tests all passing
+- Test coverage for all new modules and CLI commands
+
+### 🔧 Internal
+- New modules: `live.py`, `digest.py`, `init_wizard.py`
+- `collect_with_progress()` method for progress callbacks
+- Updated public API exports
+- Version bumped to 0.7.0
+
 ## [0.6.0] — 2026-05-13
 
 ### ✨ New Features

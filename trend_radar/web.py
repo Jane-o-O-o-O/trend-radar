@@ -22,7 +22,7 @@ def create_app(radar=None, host: str = "127.0.0.1", port: int = 8765):
     app = FastAPI(
         title="Trend Radar",
         description="Multi-source tech intelligence dashboard",
-        version="0.6.0",
+        version="0.7.0",
     )
 
     _radar = radar or TrendRadar()
@@ -189,27 +189,34 @@ def create_app(radar=None, host: str = "127.0.0.1", port: int = 8765):
 
 
 def _dashboard_html() -> str:
-    """Return the embedded dashboard HTML."""
-    return """<!DOCTYPE html>
+    """Return the embedded dashboard HTML with Chart.js visualizations."""
+    return _DASHBOARD_HTML
+
+
+_DASHBOARD_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>📡 Trend Radar Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
-.container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .header { text-align: center; padding: 30px; border-bottom: 1px solid #21262d; }
-.header h1 { font-size: 2em; color: #58a6ff; }
-.header p { color: #8b949e; margin-top: 8px; }
-.controls { display: flex; gap: 12px; justify-content: center; margin: 20px 0; flex-wrap: wrap; }
+.header h1 { font-size: 2.2em; color: #58a6ff; letter-spacing: -0.5px; }
+.header p { color: #8b949e; margin-top: 8px; font-size: 1.05em; }
+.controls { display: flex; gap: 12px; justify-content: center; margin: 24px 0; flex-wrap: wrap; }
 .btn { padding: 10px 20px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; border-radius: 6px; cursor: pointer; font-size: 0.95em; transition: all 0.2s; }
 .btn:hover { background: #30363d; border-color: #58a6ff; color: #58a6ff; }
 .btn.active { background: #1f6feb; border-color: #1f6feb; color: white; }
 select, input { padding: 10px 14px; border: 1px solid #30363d; background: #161b22; color: #c9d1d9; border-radius: 6px; font-size: 0.95em; }
 .search-box { display: flex; gap: 8px; justify-content: center; margin: 16px 0; }
-.search-box input { width: 300px; }
+.search-box input { width: 350px; }
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 24px 0; }
+.chart-card { background: #161b22; border: 1px solid #21262d; border-radius: 10px; padding: 20px; }
+.chart-card h3 { color: #58a6ff; margin-bottom: 12px; font-size: 1em; }
 .results { margin-top: 20px; }
 .item { padding: 14px 16px; border-bottom: 1px solid #21262d; display: flex; gap: 14px; align-items: flex-start; transition: background 0.15s; }
 .item:hover { background: #161b22; }
@@ -228,28 +235,34 @@ select, input { padding: 10px 14px; border: 1px solid #30363d; background: #161b
 .source-arxiv { background: #b31b1b20; color: #b31b1b; }
 .source-rss { background: #ee802f20; color: #ee802f; }
 .source-producthunt { background: #da552f20; color: #da552f; }
-.keywords { margin-top: 24px; padding: 20px; background: #161b22; border-radius: 8px; }
-.keywords h3 { margin-bottom: 12px; }
+.keywords { margin-top: 24px; padding: 20px; background: #161b22; border-radius: 10px; border: 1px solid #21262d; }
+.keywords h3 { margin-bottom: 14px; color: #58a6ff; }
 .keyword-cloud { display: flex; flex-wrap: wrap; gap: 8px; }
 .kw-tag { padding: 4px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 16px; font-size: 0.9em; color: #58a6ff; }
 .status { text-align: center; padding: 40px; color: #8b949e; }
 .loading { display: none; text-align: center; padding: 20px; color: #58a6ff; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 20px 0; }
+.stat-card { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 20px; text-align: center; }
+.stat-card .number { font-size: 2em; font-weight: bold; color: #58a6ff; }
+.stat-card .label { color: #8b949e; font-size: 0.9em; margin-top: 4px; }
 .footer { text-align: center; padding: 30px; color: #484f58; font-size: 0.85em; border-top: 1px solid #21262d; margin-top: 40px; }
+@media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
     <h1>📡 Trend Radar</h1>
-    <p>Multi-source tech intelligence dashboard</p>
+    <p>Multi-source tech intelligence dashboard — v0.7.0</p>
   </div>
 
   <div class="controls">
-    <button class="btn active" onclick="fetchAll()">📡 Fetch All</button>
-    <button class="btn" onclick="fetchAI()">🤖 AI Intel</button>
-    <button class="btn" onclick="showKeywords()">🔑 Keywords</button>
-    <button class="btn" onclick="showStats()">📊 Stats</button>
-    <select id="sourceSelect">
+    <button class="btn active" id="btnFetch" onclick="fetchAll()">📡 Fetch All</button>
+    <button class="btn" id="btnAI" onclick="fetchAI()">🤖 AI Intel</button>
+    <button class="btn" id="btnKW" onclick="showKeywords()">🔑 Keywords</button>
+    <button class="btn" id="btnStats" onclick="showStats()">📊 Stats</button>
+    <button class="btn" id="btnDiff" onclick="showDiff()">📈 Diff</button>
+    <select id="sourceSelect" onchange="fetchAll()">
       <option value="">All Sources</option>
       <option value="github">🐙 GitHub</option>
       <option value="hackernews">🔶 HN</option>
@@ -264,98 +277,147 @@ select, input { padding: 10px 14px; border: 1px solid #30363d; background: #161b
     <button class="btn" onclick="doSearch()">🔍 Search</button>
   </div>
 
-  <div class="loading" id="loading">📡 Loading...</div>
+  <div class="loading" id="loading">📡 Fetching intel...</div>
+  <div id="chartsArea"></div>
   <div class="results" id="results"></div>
 </div>
 
 <div class="footer">
-  Trend Radar · <a href="https://github.com/Jane-o-O-o-O/trend-radar" style="color:#58a6ff">GitHub</a>
+  Trend Radar v0.7.0 · <a href="https://github.com/Jane-o-O-o-O/trend-radar" style="color:#58a6ff">GitHub</a> · Made with ❤️
 </div>
 
 <script>
 const emoji = {github:'🐙',hackernews:'🔶',reddit:'🤖',arxiv:'📄',rss:'📡',producthunt:'🚀'};
 const colors = {github:'#6e5494',hackernews:'#ff6600',reddit:'#ff4500',arxiv:'#b31b1b',rss:'#ee802f',producthunt:'#da552f'};
+let sourceChart = null, keywordChart = null;
 
+function setActive(id) { document.querySelectorAll('.controls .btn').forEach(b=>b.classList.remove('active')); document.getElementById(id)?.classList.add('active'); }
 function showLoading() { document.getElementById('loading').style.display = 'block'; }
 function hideLoading() { document.getElementById('loading').style.display = 'none'; }
-
 function scoreFmt(n) { return n >= 1000 ? (n/1000).toFixed(1)+'k' : String(n); }
 
+function renderCharts(data) {
+  const area = document.getElementById('chartsArea');
+  area.innerHTML = '<div class="charts-grid"><div class="chart-card"><h3>📊 Source Distribution</h3><canvas id="sourceChart"></canvas></div><div class="chart-card"><h3>🔑 Top Keywords</h3><canvas id="kwChart"></canvas></div></div>';
+
+  const sourceCounts = {};
+  data.items.forEach(i => { sourceCounts[i.source] = (sourceCounts[i.source]||0)+1; });
+  const sLabels = Object.keys(sourceCounts);
+  const sValues = Object.values(sourceCounts);
+  const sColors = sLabels.map(s => colors[s] || '#58a6ff');
+
+  if (sourceChart) sourceChart.destroy();
+  sourceChart = new Chart(document.getElementById('sourceChart'), {
+    type: 'doughnut',
+    data: { labels: sLabels.map(s => (emoji[s]||'')+' '+s), datasets: [{ data: sValues, backgroundColor: sColors, borderColor: '#0d1117', borderWidth: 2 }] },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#c9d1d9', padding: 12 } } } }
+  });
+
+  if (data.keywords && data.keywords.length) {
+    const kLabels = data.keywords.slice(0,10).map(k => Array.isArray(k)?k[0]:k.word);
+    const kValues = data.keywords.slice(0,10).map(k => Array.isArray(k)?k[1]:k.count);
+    if (keywordChart) keywordChart.destroy();
+    keywordChart = new Chart(document.getElementById('kwChart'), {
+      type: 'bar',
+      data: { labels: kLabels, datasets: [{ label: 'Mentions', data: kValues, backgroundColor: '#3b82f6', borderRadius: 4 }] },
+      options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } }, y: { ticks: { color: '#c9d1d9' }, grid: { display: false } } } }
+    });
+  }
+}
+
 async function fetchAll() {
-  showLoading();
+  setActive('btnFetch'); showLoading();
   const src = document.getElementById('sourceSelect').value;
-  const url = '/api/fetch' + (src ? '?sources='+src : '');
-  const resp = await fetch(url);
-  const data = await resp.json();
-  hideLoading();
-  renderItems(data.items, '📡 Trending', data.keywords);
+  const resp = await fetch('/api/fetch' + (src ? '?sources='+src : ''));
+  const data = await resp.json(); hideLoading();
+  renderCharts(data); renderItems(data.items, '📡 Trending', data.keywords);
 }
 
 async function fetchAI() {
-  showLoading();
+  setActive('btnAI'); showLoading();
   const resp = await fetch('/api/ai');
-  const data = await resp.json();
-  hideLoading();
-  renderItems(data.items, '🤖 AI Intel', data.keywords);
+  const data = await resp.json(); hideLoading();
+  renderCharts(data); renderItems(data.items, '🤖 AI Intel', data.keywords);
 }
 
 async function showKeywords() {
-  showLoading();
+  setActive('btnKW'); showLoading();
   const resp = await fetch('/api/keywords');
-  const data = await resp.json();
-  hideLoading();
-  let html = '<div class="keywords"><h3>🔑 Trending Keywords</h3><div class="keyword-cloud">';
+  const data = await resp.json(); hideLoading();
+  document.getElementById('chartsArea').innerHTML = '';
+  let html = '<div class="keywords"><h3>🔑 Trending Keywords (7 days)</h3><div class="keyword-cloud">';
   data.keywords.forEach(k => { html += '<span class="kw-tag">'+k.word+' ('+k.count+')</span>'; });
   html += '</div></div>';
   document.getElementById('results').innerHTML = html;
 }
 
 async function showStats() {
-  showLoading();
+  setActive('btnStats'); showLoading();
   const resp = await fetch('/api/stats');
-  const data = await resp.json();
-  hideLoading();
-  let html = '<div class="keywords"><h3>📊 Statistics</h3><div style="margin-top:12px">';
-  for (const [k,v] of Object.entries(data)) {
-    if (typeof v === 'object') { for (const [a,b] of Object.entries(v)) html += '<p><strong>'+k+'.'+a+':</strong> '+b+'</p>'; }
-    else html += '<p><strong>'+k+':</strong> '+v+'</p>';
+  const data = await resp.json(); hideLoading();
+  document.getElementById('chartsArea').innerHTML = '';
+  let html = '<div class="stats-grid">';
+  html += '<div class="stat-card"><div class="number">'+(data.total_snapshots||0)+'</div><div class="label">Snapshots</div></div>';
+  html += '<div class="stat-card"><div class="number">'+(data.total_items||0)+'</div><div class="label">Total Items</div></div>';
+  html += '<div class="stat-card"><div class="number">'+(data.sources||[]).length+'</div><div class="label">Sources</div></div>';
+  if (data.cache) {
+    html += '<div class="stat-card"><div class="number">'+(data.cache.memory_entries||0)+'</div><div class="label">Cache (Memory)</div></div>';
+    html += '<div class="stat-card"><div class="number">'+(data.cache.disk_entries||0)+'</div><div class="label">Cache (Disk)</div></div>';
   }
-  html += '</div></div>';
+  html += '</div>';
+  document.getElementById('results').innerHTML = html;
+}
+
+async function showDiff() {
+  setActive('btnDiff'); showLoading();
+  const resp = await fetch('/api/diff');
+  const data = await resp.json(); hideLoading();
+  document.getElementById('chartsArea').innerHTML = '';
+  let html = '';
+  if (data.rising && data.rising.length) {
+    html += '<h3 style="color:#3fb950;margin:16px 0">🔺 Rising</h3>';
+    data.rising.slice(0,10).forEach((item,i) => {
+      html += '<div class="item"><span class="item-rank">'+(i+1)+'</span><div class="item-content"><div class="item-title">'+item.title+'</div><div class="item-meta">'+item.source+'</div></div><span class="item-score" style="color:#3fb950">+'+item.score_delta+'</span></div>';
+    });
+  }
+  if (data.falling && data.falling.length) {
+    html += '<h3 style="color:#f85149;margin:16px 0">🔻 Falling</h3>';
+    data.falling.slice(0,10).forEach((item,i) => {
+      html += '<div class="item"><span class="item-rank">'+(i+1)+'</span><div class="item-content"><div class="item-title">'+item.title+'</div><div class="item-meta">'+item.source+'</div></div><span class="item-score" style="color:#f85149">'+item.score_delta+'</span></div>';
+    });
+  }
+  if (!html) html = '<div class="status">No diff data available. Run fetch at least twice.</div>';
   document.getElementById('results').innerHTML = html;
 }
 
 async function doSearch() {
   const q = document.getElementById('searchInput').value.trim();
-  if (!q) return;
-  showLoading();
+  if (!q) return; showLoading();
   const resp = await fetch('/api/search?q='+encodeURIComponent(q));
-  const data = await resp.json();
-  hideLoading();
+  const data = await resp.json(); hideLoading();
+  document.getElementById('chartsArea').innerHTML = '';
   renderItems(data.items, '🔍 Search: '+q, null);
 }
 
 function renderItems(items, title, keywords) {
-  let html = '<h3 style="margin:16px 0;color:#58a6ff">'+title+'</h3>';
+  let html = '<h3 style="margin:16px 0;color:#58a6ff">'+title+' <span style="color:#8b949e;font-weight:normal;font-size:0.8em">('+items.length+' items)</span></h3>';
   items.forEach((item, i) => {
-    const src = item.source;
-    const em = emoji[src] || '•';
-    const score = scoreFmt(item.score);
+    const src = item.source; const em = emoji[src]||'•'; const score = scoreFmt(item.score);
     html += '<div class="item"><span class="item-rank">'+(i+1)+'</span><div class="item-content">';
     html += '<div class="item-title"><span class="source-badge source-'+src+'">'+em+' '+src+'</span>';
-    html += '<a href="'+item.url+'" target="_blank">'+item.title+'</a></div>';
-    if (item.description) html += '<div class="item-desc">'+item.description.substring(0,150)+'</div>';
+    html += '<a href="'+(item.url||'#')+'" target="_blank">'+item.title+'</a></div>';
+    if (item.description) html += '<div class="item-desc">'+item.description.substring(0,160)+'</div>';
     if (item.author) html += '<div class="item-meta">👤 '+item.author+'</div>';
     html += '</div><span class="item-score" style="color:'+(colors[src]||'#58a6ff')+'">'+score+'</span></div>';
   });
-  if (keywords) {
+  if (keywords && keywords.length) {
     html += '<div class="keywords"><h3>🔑 Keywords</h3><div class="keyword-cloud">';
-    keywords.slice(0,15).forEach(([w,c]) => { html += '<span class="kw-tag">'+w+' ('+c+')</span>'; });
+    keywords.slice(0,15).forEach(k => { const w=Array.isArray(k)?k[0]:k.word; const c=Array.isArray(k)?k[1]:k.count; html += '<span class="kw-tag">'+w+' ('+c+')</span>'; });
     html += '</div></div>';
   }
   document.getElementById('results').innerHTML = html;
 }
 
-// Auto-fetch on load
 fetchAll();
 </script>
 </body>
