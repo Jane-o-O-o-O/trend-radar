@@ -2,6 +2,28 @@
 
 All notable changes to Trend Radar are documented here.
 
+## [0.8.0] — 2026-05-14
+
+### Added
+- **`trend-radar radar`** — Topic distribution spider chart in terminal
+- **`trend-radar bookmark add/list/search/remove/star/export`** — Bookmark system with SQLite storage
+- **`trend-radar plugins list/load/info`** — Custom data source plugin system
+- **`trend-radar compare`** — Compare trends between two time periods
+- **`trend-radar completions bash/zsh/fish`** — Shell auto-completion scripts
+- **`trend-radar rate-limits`** — View API rate limiter status for all sources
+- **Token bucket rate limiter** — Per-source API throttling (`rate_limiter.py`)
+- **Radar chart module** — Topic classification + spider chart visualization (`radar_chart.py`)
+- **Bookmark module** — Full CRUD with star, search, export (`bookmarks.py`)
+- **Plugin module** — Register/load custom DataSource plugins (`plugins.py`)
+- **GitHub Actions CI** — Auto-test on Python 3.10-3.13 + lint (`ci.yml`)
+- **GitHub Actions Publish** — Auto-publish to PyPI on release (`publish.yml`)
+- 65 new tests (359 total, 100% pass rate)
+
+### Changed
+- Version bumped to 0.8.0
+- README updated with v0.8.0 features, new commands, comparison table
+- Duplicate `main()` call in CLI fixed
+
 ## [0.7.0] — 2026-05-13
 
 ### ✨ New Features
