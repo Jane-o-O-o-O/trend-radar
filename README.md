@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-green.svg)]()
-[![Tests](https://img.shields.io/badge/tests-359%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-450%20passed-brightgreen.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 [![PyPI](https://img.shields.io/pypi/v/trend-radar?color=blue)](https://pypi.org/project/trend-radar/)
 
@@ -31,11 +31,27 @@
 | Web dashboard | ❌ | ❌ | ✅ Chart.js visualizations |
 | JSON/CSV export | ❌ | ❌ | ✅ |
 | Interactive shell | ❌ | ❌ | ✅ |
+| Color themes | ❌ | ❌ | ✅ 7 built-in themes (Dracula, Monokai, Nord...) |
+| Cross-source dedup | ❌ | ❌ | ✅ Detect same story across HN+Reddit+RSS |
+| Snapshot diffing | ❌ | ❌ | ✅ Save & compare trend snapshots over time |
+| Webhook alerts | ❌ | ❌ | ✅ Slack/Discord/Telegram notifications |
+| Obsidian export | ❌ | ❌ | ✅ Markdown with YAML frontmatter + wikilinks |
+| Timeline view | ❌ | ❌ | ✅ Topic trend sparklines over days/weeks |
 | Self-contained | ❌ | ❌ | ✅ No API keys needed |
 
 Trend Radar aggregates tech trends from **GitHub**, **Hacker News**, **Reddit**, **arXiv**, **RSS feeds**, and **Product Hunt** into a single, beautiful terminal dashboard. Track keywords over time, search across all sources, and never miss what's trending.
 
-### 🆕 What's New in v0.8.0
+### 🆕 What's New in v0.9.0
+- **`trend-radar themes`** — 7 built-in color themes: default, dracula, monokai, solarized, nord, gruvbox, light
+- **`trend-radar dedup`** — Cross-source deduplication engine (detects same story on HN + Reddit + RSS)
+- **`trend-radar snapshots`** — Save, list, and diff trend snapshots (see what changed over time)
+- **`trend-radar webhooks`** — Send alert notifications to Slack, Discord, or Telegram
+- **`trend-radar obsidian`** — Export trends as Obsidian-compatible markdown with YAML frontmatter
+- **`trend-radar timeline`** — Topic trend visualization with sparklines over days/weeks
+- **Enhanced store** — Full snapshot loading with item reconstruction
+- **450 tests** all passing
+
+### Previous: v0.8.0
 - **`trend-radar radar`** — Topic distribution spider chart in terminal (AI, Web, Security, DevOps...)
 - **`trend-radar bookmark`** — Save, star, search, and export interesting items
 - **`trend-radar plugins`** — Custom data source plugin system (drop .py files in ~/.trend-radar/plugins/)
@@ -137,6 +153,39 @@ trend-radar alerts-check
 trend-radar plugins list
 trend-radar plugins load /path/to/plugins/
 
+# Cross-source deduplication
+trend-radar dedup                             # Find duplicates across all sources
+trend-radar dedup -s hackernews,reddit        # Check specific sources
+trend-radar dedup --threshold 0.8             # Stricter similarity threshold
+
+# Snapshot management
+trend-radar snapshots --list                  # List saved snapshots
+trend-radar snapshots --save                  # Save current fetch as snapshot
+trend-radar snapshots --save --label "v2.0"   # Save with label
+trend-radar snapshots --auto-diff             # Diff two most recent snapshots
+trend-radar snapshots --diff 1 2              # Diff specific snapshots
+
+# Color themes
+trend-radar themes --list                     # List available themes
+trend-radar themes --preview dracula          # Preview a theme
+trend-radar themes --set nord                 # Set active theme
+
+# Webhook notifications
+trend-radar webhooks --list                   # List configured webhooks
+trend-radar webhooks --add https://hooks.slack.com/... --name slack-alerts --type slack
+trend-radar webhooks --test slack-alerts      # Send test notification
+trend-radar webhooks --remove slack-alerts    # Remove webhook
+
+# Obsidian export
+trend-radar obsidian --format daily           # Export as daily note with frontmatter
+trend-radar obsidian --format vault -o notes/ # Export as full Obsidian vault
+trend-radar obsidian --format item -o items/  # Export each item as a note
+
+# Timeline visualization
+trend-radar timeline                          # Show topic trends (7 days)
+trend-radar timeline --days 30                # Last 30 days
+trend-radar timeline -k "agent,llm,mcp"      # Track specific keywords
+
 # Shell auto-completion
 eval "$(trend-radar completions bash)"
 eval "$(trend-radar completions zsh)"
@@ -188,6 +237,12 @@ docker run -p 8765:8765 trend-radar
 | 🏥 **Health checks** | Source connectivity and latency monitoring |
 | 🐳 **Docker ready** | One-command web dashboard deployment |
 | 🤖 **Hermes Agent** | Built-in AI agent tool integration |
+| 🎨 **Color themes** | 7 built-in themes: Dracula, Monokai, Nord, Solarized, Gruvbox, Light |
+| 🔗 **Cross-source dedup** | Detect same story across HN + Reddit + RSS |
+| 📸 **Snapshot diffing** | Save snapshots and compare over time |
+| 🔔 **Webhook alerts** | Slack/Discord/Telegram notifications |
+| 📝 **Obsidian export** | Markdown with YAML frontmatter + wikilinks |
+| 📈 **Timeline view** | Topic trend sparklines over days/weeks |
 
 ## 📦 Data Sources
 
@@ -390,6 +445,47 @@ csv_data = CsvRenderer().render(snapshot)
 from trend_radar import generate_digest_markdown, generate_digest_html
 md = generate_digest_markdown(snapshot, title="Weekly Tech Digest")
 html = generate_digest_html(snapshot)
+
+# ─── v0.9.0: Themes ───
+from trend_radar import get_theme, list_themes
+for name in list_themes():
+    print(f"  {name}: {get_theme(name).primary}")
+theme = get_theme("dracula")
+style, emoji = theme.get_score_style(5000)  # "🔴"
+
+# ─── v0.9.0: Deduplication ───
+from trend_radar import DedupEngine
+engine = DedupEngine(title_threshold=0.7)
+unique, groups = engine.deduplicate(snapshot.items)
+for g in groups:
+    print(f"  Duplicate: {g.primary_title} ({g.source_count} sources)")
+
+# ─── v0.9.0: Snapshots ───
+from trend_radar import SnapshotManager
+manager = SnapshotManager(radar.store)
+snap_id = manager.save_snapshot(snapshot, label="morning_check")
+diff = manager.auto_diff()
+if diff:
+    print(f"  New: {len(diff.new_items)}, Removed: {len(diff.removed_items)}")
+
+# ─── v0.9.0: Webhooks ───
+from trend_radar import WebhookDispatcher, WebhookConfig, WebhookType
+dispatcher = WebhookDispatcher()
+dispatcher.add(WebhookConfig(
+    name="slack", url="https://hooks.slack.com/...",
+    webhook_type=WebhookType.SLACK,
+))
+
+# ─── v0.9.0: Obsidian Export ───
+from trend_radar import export_obsidian_daily, export_obsidian_vault
+content = export_obsidian_daily(snapshot)  # Markdown with frontmatter
+files = export_obsidian_vault(snapshot)    # Full vault with MOC
+
+# ─── v0.9.0: Timeline ───
+from trend_radar import compute_timeline
+timeline = compute_timeline(radar.store, days=7)
+for topic in timeline.top_topics:
+    print(f"  {topic.keyword} {topic.trend} ({topic.total} mentions)")
 ```
 
 ## ⚙️ Configuration
@@ -425,7 +521,7 @@ display:
   layout: table          # table | cards | compact
   items_per_source: 15
   show_keywords: true
-  color_theme: default   # default | monokai | dracula
+  color_theme: default   # default | dracula | monokai | solarized | nord | gruvbox | light
 
 cache:
   enabled: true
@@ -459,6 +555,16 @@ trend_radar/
 ├── opml.py              # OPML/JSON feed import
 ├── async_fetch.py       # Async HTTP fetching with httpx
 ├── retry.py             # Exponential backoff retry logic
+├── themes.py            # 🎨 7 built-in color themes (Dracula, Monokai, Nord...)
+├── dedup.py             # 🔗 Cross-source deduplication engine
+├── snapshots.py         # 📸 Snapshot save/load and diffing
+├── webhooks.py          # 🔔 Webhook notification dispatcher (Slack/Discord/Telegram)
+├── timeline.py          # 📈 Topic timeline with sparkline visualization
+├── obsidian_export.py   # 📝 Obsidian-compatible markdown with frontmatter
+├── bookmarks.py         # ⭐ Bookmark store
+├── plugins.py           # 🔌 Plugin system
+├── rate_limiter.py      # ⏱️ Token bucket rate limiter
+├── radar_chart.py       # 🕸️ Topic distribution spider chart
 ├── exporters/
 │   ├── __init__.py
 │   ├── html.py          # Standalone HTML dashboard exporter
@@ -509,6 +615,12 @@ pytest
 | Live dashboard | ✅ Rich Live | ❌ | ❌ | ❌ |
 | Parallel fetching | ✅ ThreadPool | ❌ | ❌ | ❌ |
 | Terminal UI | ✅ Rich + sparklines | ✅ | ❌ | ✅ |
+| Color themes | ✅ 7 themes | ❌ | ❌ | ❌ |
+| Cross-source dedup | ✅ URL+title | ❌ | ❌ | ❌ |
+| Snapshot diffing | ✅ Save & compare | ❌ | ❌ | ❌ |
+| Webhook alerts | ✅ Slack/Discord/Telegram | ❌ | ❌ | ❌ |
+| Obsidian export | ✅ Frontmatter | ❌ | ❌ | ❌ |
+| Timeline view | ✅ Sparklines | ❌ | ❌ | ❌ |
 | Trend diff | ✅ Rising/falling | ❌ | ❌ | ❌ |
 | Topic filtering | ✅ 7 topics | ❌ | ❌ | ❌ |
 | Digest reports | ✅ Markdown/HTML | ❌ | ❌ | ❌ |
