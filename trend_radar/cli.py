@@ -21,7 +21,7 @@ def _get_console(ctx) -> Console:
 
 
 @click.group()
-@click.version_option("0.9.0")
+@click.version_option("1.0.0")
 @click.option("--db", default=None, help="Path to trends database")
 @click.option("--github-token", default=None, help="GitHub personal access token")
 @click.option("--config", "config_path", default=None, help="Path to config file")
