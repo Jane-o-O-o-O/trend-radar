@@ -2,6 +2,26 @@
 
 All notable changes to Trend Radar are documented here.
 
+## [1.0.0] — 2026-05-14
+
+### 🎉 v1.0.0 Release — Production Ready
+
+### Added
+- **`trend-radar demo`** — Instant demo with synthetic data, no API keys needed! Shows realistic trend data across all 6 sources
+- **`trend-radar doctor`** — System diagnostics: check Python version, dependencies, API connectivity, config, and database
+- **Demo data generator** — `demo.py` with realistic synthetic data for GitHub, HN, Reddit, arXiv, RSS, Product Hunt
+- **Doctor diagnostics** — `doctor.py` with connectivity checks for all 5 external APIs
+- **Integration test suite** — Real API connectivity tests for GitHub, HN, Reddit, arXiv, RSS (16 tests)
+- **Complete type annotations** — All 58 public non-CLI functions now have return type hints
+- **GitHub Sponsors** — `.github/FUNDING.yml` for sponsorship
+- 47 new tests (497 total, 100% pass rate)
+
+### Changed
+- Version bumped to 1.0.0 across all files
+- README updated with v1.0.0 highlights, demo/doctor quick-start
+- Test badge updated to 497 tests
+- Custom pytest marker `integration` registered in pyproject.toml
+
 ## [0.8.0] — 2026-05-14
 
 ### Added

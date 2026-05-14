@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-green.svg)]()
-[![Tests](https://img.shields.io/badge/tests-450%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-497%20passed-brightgreen.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
 [![PyPI](https://img.shields.io/pypi/v/trend-radar?color=blue)](https://pypi.org/project/trend-radar/)
 
@@ -41,15 +41,20 @@
 
 Trend Radar aggregates tech trends from **GitHub**, **Hacker News**, **Reddit**, **arXiv**, **RSS feeds**, and **Product Hunt** into a single, beautiful terminal dashboard. Track keywords over time, search across all sources, and never miss what's trending.
 
-### 🆕 What's New in v0.9.0
+### 🆕 What's New in v1.0.0
+- **`trend-radar demo`** 🎉 — Instant demo with synthetic data, no API keys needed! Perfect for first-time users
+- **`trend-radar doctor`** 🏥 — System diagnostics: check source connectivity, dependencies, config, and database
+- **Complete type annotations** — All public functions have return type hints for better IDE support
+- **Integration test suite** — Real API connectivity tests for GitHub, HN, Reddit, arXiv, RSS
+- **497 tests** all passing
+
+### Previous: v0.9.0
 - **`trend-radar themes`** — 7 built-in color themes: default, dracula, monokai, solarized, nord, gruvbox, light
 - **`trend-radar dedup`** — Cross-source deduplication engine (detects same story on HN + Reddit + RSS)
 - **`trend-radar snapshots`** — Save, list, and diff trend snapshots (see what changed over time)
 - **`trend-radar webhooks`** — Send alert notifications to Slack, Discord, or Telegram
 - **`trend-radar obsidian`** — Export trends as Obsidian-compatible markdown with YAML frontmatter
 - **`trend-radar timeline`** — Topic trend visualization with sparklines over days/weeks
-- **Enhanced store** — Full snapshot loading with item reconstruction
-- **450 tests** all passing
 
 ### Previous: v0.8.0
 - **`trend-radar radar`** — Topic distribution spider chart in terminal (AI, Web, Security, DevOps...)
@@ -108,6 +113,12 @@ pip install trend-radar
 
 # Install with all features (web dashboard + interactive shell)
 pip install trend-radar[all]
+
+# 🎉 Try it instantly — no API keys, no setup!
+trend-radar demo
+
+# Or diagnose your system
+trend-radar doctor
 
 # First-time setup wizard (interactive)
 trend-radar init
@@ -258,6 +269,15 @@ docker run -p 8765:8765 trend-radar
 ## 🛠️ Commands
 
 ```bash
+# 🎉 Demo mode — try Trend Radar with synthetic data (no API keys!)
+trend-radar demo                          # Show demo data across all sources
+trend-radar demo -s github,hn             # Demo for specific sources
+trend-radar demo --json                   # Demo as JSON
+trend-radar demo --seed 42                # Reproducible demo data
+
+# 🏥 System diagnostics
+trend-radar doctor                        # Check source connectivity, deps, config
+
 # Fetch trending intel
 trend-radar fetch                         # All sources, table layout (parallel!)
 trend-radar fetch -s github,hn            # Specific sources
