@@ -81,7 +81,7 @@ class TrendCache:
 
         return None
 
-    def set(self, key: str, value: Any, ttl: Optional[int] = None):
+    def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """Store in both memory and disk cache."""
         now = time.time()
         disk_ttl = self.disk_ttl if ttl is None else ttl
@@ -99,7 +99,7 @@ class TrendCache:
         except sqlite3.Error:
             pass
 
-    def invalidate(self, key: str):
+    def invalidate(self, key: str) -> None:
         """Remove a key from both caches."""
         self._memory.pop(key, None)
         try:
@@ -108,7 +108,7 @@ class TrendCache:
         except sqlite3.Error:
             pass
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all caches."""
         self._memory.clear()
         try:
@@ -117,7 +117,7 @@ class TrendCache:
         except sqlite3.Error:
             pass
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Remove expired entries from disk cache."""
         now = time.time()
         try:

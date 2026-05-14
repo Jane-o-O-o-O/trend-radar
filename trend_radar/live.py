@@ -169,7 +169,7 @@ class LiveDashboard:
         self.interval = interval
         self.cycle = 0
 
-    def run(self, sources=None, limit=15):
+    def run(self, sources=None, limit: int = 15) -> None:
         """Run the live dashboard loop."""
         try:
             with Live(

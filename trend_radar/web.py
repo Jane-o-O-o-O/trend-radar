@@ -12,7 +12,7 @@ except ImportError:
     HAS_FASTAPI = False
 
 
-def create_app(radar=None, host: str = "127.0.0.1", port: int = 8765):
+def create_app(radar=None, host: str = "127.0.0.1", port: int = 8765) -> "FastAPI":
     """Create the FastAPI web application."""
     if not HAS_FASTAPI:
         raise ImportError("fastapi and uvicorn are required. Install with: pip install fastapi uvicorn")

@@ -67,7 +67,7 @@ class TrendConfig:
         self._config: dict = {}
         self.load()
 
-    def load(self):
+    def load(self, path: str | None = None) -> None:
         """Load config from file, merging with defaults."""
         if self.path.exists():
             try:
@@ -80,7 +80,7 @@ class TrendConfig:
             self._config = copy.deepcopy(DEFAULT_CONFIG)
             self.save()  # Write default config
 
-    def save(self):
+    def save(self) -> None:
         """Save current config to file."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.path, "w") as f:
@@ -97,7 +97,7 @@ class TrendConfig:
                 return default
         return node
 
-    def set(self, dotpath: str, value: Any):
+    def set(self, dotpath: str, value: Any) -> None:
         """Set config value by dot-separated path."""
         keys = dotpath.split(".")
         node = self._config

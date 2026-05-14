@@ -130,7 +130,7 @@ class TerminalRenderer:
         self.console = console or Console()
         self.show_banner = show_banner
 
-    def render_snapshot(self, snapshot: TrendSnapshot, layout: str = "table"):
+    def render_snapshot(self, snapshot: TrendSnapshot, layout: str = "table", show_banner: bool = True) -> None:
         """Render a trend snapshot with full visual flair."""
         if self.show_banner:
             self.console.print(BANNER_ART)
@@ -147,7 +147,7 @@ class TerminalRenderer:
         self._render_keywords(snapshot)
         self._render_summary(snapshot)
 
-    def render_items(self, items: list[IntelItem], title: str = "Trending"):
+    def render_items(self, items: list[IntelItem], title: str = "Trending") -> None:
         """Render a list of items as a beautiful table."""
         if not items:
             self.console.print(
@@ -416,7 +416,7 @@ class TerminalRenderer:
 
         self.console.print()
 
-    def render_source_distribution(self, snapshot: TrendSnapshot):
+    def render_source_distribution(self, snapshot: TrendSnapshot) -> None:
         """Render a visual source distribution chart — pie-style bar chart."""
         by_source: dict[str, int] = {}
         for item in snapshot.items:
@@ -479,7 +479,7 @@ class TerminalRenderer:
 
         self.console.print(Panel(dist_table, border_style="bright_blue", padding=(0, 1)))
 
-    def render_keyword_trends(self, keyword_data: list[tuple[str, list[int], int]]):
+    def render_keyword_trends(self, keyword_data: list[tuple[str, list[int], int]]) -> None:
         """Render keyword trends with sparklines over time.
 
         Args:
@@ -521,7 +521,7 @@ class TerminalRenderer:
 
         self.console.print(tbl)
 
-    def render_diff(self, diff_data: dict):
+    def render_diff(self, diff_data: dict) -> None:
         """Render a trend diff showing rising, falling, new, and gone items."""
         self.console.print()
 
@@ -624,7 +624,7 @@ class TerminalRenderer:
 
         self.console.print()
 
-    def render_health(self, health_data: dict[str, dict]):
+    def render_health(self, health_data: dict[str, dict]) -> None:
         """Render source health check results."""
         self.console.print()
         table = Table(
