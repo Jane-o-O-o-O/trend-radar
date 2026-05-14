@@ -28,6 +28,8 @@ from .snapshots import SnapshotManager, SnapshotDiff
 from .webhooks import WebhookDispatcher, WebhookConfig, WebhookType
 from .timeline import compute_timeline, render_timeline_panel, TopicTimeline, TimelineData
 from .obsidian_export import export_obsidian_daily, export_obsidian_vault, export_obsidian_item
+from .demo import generate_demo_snapshot
+from .doctor import run_doctor, DoctorReport, CheckResult
 
 __all__ = [
     "TrendRadar",
@@ -83,4 +85,9 @@ __all__ = [
     "export_obsidian_daily",
     "export_obsidian_vault",
     "export_obsidian_item",
+    # v1.0.0
+    "generate_demo_snapshot",
+    "run_doctor",
+    "DoctorReport",
+    "CheckResult",
 ]

@@ -1528,5 +1528,55 @@ def timeline_cmd(ctx, days, keywords, top, output_json):
     console.print()
 
 
+@main.command("demo")
+@click.option("--sources", "-s", default=None, help="Comma-separated sources (default: all)")
+@click.option("--limit", "-n", default=10, help="Items per source", type=int)
+@click.option("--layout", "-l", type=click.Choice(["table", "cards", "compact"]), default="table")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.option("--no-banner", is_flag=True, help="Hide ASCII banner")
+@click.option("--seed", default=None, type=int, help="Random seed for reproducibility")
+@click.pass_context
+def demo(ctx, sources, limit, layout, output_json, no_banner, seed):
+    """🎉 Show demo data — no API keys needed!
+
+    Generates realistic synthetic trend data across all sources.
+    Perfect for first-time users and screenshots.
+    """
+    from .demo import generate_demo_snapshot
+    from .render import SOURCE_EMOJI, BANNER_ART
+    from .models import SourceType
+
+    console = _get_console(ctx)
+    source_list = sources.split(",") if sources else None
+
+    if not no_banner and not output_json:
+        console.print(BANNER_ART)
+        console.print()
+        console.print("[dim italic]  🎭 Demo mode — showing synthetic data (no API calls)[/dim italic]")
+        console.print()
+
+    snapshot = generate_demo_snapshot(sources=source_list, limit=limit, seed=seed)
+
+    if output_json:
+        renderer = JsonRenderer()
+        click.echo(renderer.render(snapshot))
+        return
+
+    renderer = TerminalRenderer(console=console)
+    renderer.render_snapshot(snapshot, layout=layout, show_banner=False)
+
+
+@main.command("doctor")
+@click.pass_context
+def doctor(ctx):
+    """🏥 Diagnose system health and source connectivity.
+
+    Checks dependencies, API reachability, config, and database.
+    """
+    from .doctor import run_doctor
+    console = _get_console(ctx)
+    run_doctor(console)
+
+
 if __name__ == "__main__":
     main()
