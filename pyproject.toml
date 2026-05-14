@@ -33,3 +33,6 @@ line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: Tests that hit live API endpoints (deselect with '-m \"not integration\"')",
+]
