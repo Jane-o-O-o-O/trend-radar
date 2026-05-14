@@ -4,7 +4,7 @@ Aggregate GitHub, Hacker News, Reddit, arXiv, RSS, and Product Hunt
 trends into a single beautiful terminal dashboard.
 """
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 from .core import TrendRadar
 from .models import IntelItem, SourceType, TrendSnapshot, STOP_WORDS
@@ -22,6 +22,12 @@ from .radar_chart import render_radar_chart, render_topic_breakdown, compute_top
 from .bookmarks import BookmarkStore
 from .plugins import PluginManager
 from .rate_limiter import TokenBucketRateLimiter, RateLimiterRegistry
+from .themes import ThemeColors, THEMES, get_theme, list_themes
+from .dedup import DedupEngine, DuplicateGroup, normalize_url, normalize_title
+from .snapshots import SnapshotManager, SnapshotDiff
+from .webhooks import WebhookDispatcher, WebhookConfig, WebhookType
+from .timeline import compute_timeline, render_timeline_panel, TopicTimeline, TimelineData
+from .obsidian_export import export_obsidian_daily, export_obsidian_vault, export_obsidian_item
 
 __all__ = [
     "TrendRadar",
@@ -56,4 +62,25 @@ __all__ = [
     "PluginManager",
     "TokenBucketRateLimiter",
     "RateLimiterRegistry",
+    # v0.9.0
+    "ThemeColors",
+    "THEMES",
+    "get_theme",
+    "list_themes",
+    "DedupEngine",
+    "DuplicateGroup",
+    "normalize_url",
+    "normalize_title",
+    "SnapshotManager",
+    "SnapshotDiff",
+    "WebhookDispatcher",
+    "WebhookConfig",
+    "WebhookType",
+    "compute_timeline",
+    "render_timeline_panel",
+    "TopicTimeline",
+    "TimelineData",
+    "export_obsidian_daily",
+    "export_obsidian_vault",
+    "export_obsidian_item",
 ]

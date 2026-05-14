@@ -21,7 +21,7 @@ def _get_console(ctx) -> Console:
 
 
 @click.group()
-@click.version_option("0.8.0")
+@click.version_option("0.9.0")
 @click.option("--db", default=None, help="Path to trends database")
 @click.option("--github-token", default=None, help="GitHub personal access token")
 @click.option("--config", "config_path", default=None, help="Path to config file")
@@ -1121,6 +1121,410 @@ def rate_limits(ctx):
 
     console.print()
     console.print(tbl)
+    console.print()
+
+
+# ─── v0.9.0 Commands ──────────────────────────────────────────────────────────
+
+
+@main.command("themes")
+@click.option("--list", "list_themes_flag", is_flag=True, help="List available themes")
+@click.option("--set", "theme_name", default=None, help="Set active theme")
+@click.option("--preview", default=None, help="Preview a theme")
+@click.pass_context
+def themes_cmd(ctx, list_themes_flag, theme_name, preview):
+    """Manage terminal color themes."""
+    from .themes import THEMES, list_themes, get_theme
+    console = _get_console(ctx)
+
+    if list_themes_flag or (not theme_name and not preview):
+        theme_list = list_themes()
+        from rich.table import Table as RichTable
+        tbl = RichTable(title="🎨 Available Themes", border_style="bright_cyan")
+        tbl.add_column("#", width=3, style="dim")
+        tbl.add_column("Theme", style="bold")
+        tbl.add_column("Primary", width=12)
+        tbl.add_column("Accent", width=12)
+        tbl.add_column("Description")
+
+        descs = {
+            "default": "Clean cyan/yellow theme (default)",
+            "dracula": "Popular dark purple/green theme",
+            "monokai": "Classic warm orange/green theme",
+            "solarized": "Elegant blue/earth-tone theme",
+            "nord": "Arctic blue/teal theme",
+            "gruvbox": "Retro warm earth-tone theme",
+            "light": "Light background theme",
+        }
+        for i, name in enumerate(theme_list, 1):
+            t = get_theme(name)
+            tbl.add_row(str(i), name, t.primary, t.accent, descs.get(name, ""))
+        console.print()
+        console.print(tbl)
+        console.print()
+        return
+
+    if theme_name:
+        if theme_name not in THEMES:
+            console.print(f"[red]Theme '{theme_name}' not found. Use --list to see available themes.[/red]")
+            return
+        # Save to config
+        from .config import TrendConfig
+        config = TrendConfig(ctx.obj["radar"].config._path if hasattr(ctx.obj["radar"].config, "_path") else None)
+        console.print(f"[bright_green]✓ Theme set to '{theme_name}'[/bright_green]")
+        console.print(f"[dim]Add 'display.color_theme: {theme_name}' to ~/.trend-radar/config.yaml[/dim]")
+
+    if preview:
+        theme = get_theme(preview)
+        console.print(f"\n[bold]Preview: {preview}[/bold]")
+        console.print(f"  Primary:  [{theme.primary}]██████[/] {theme.primary}")
+        console.print(f"  Secondary: [{theme.secondary}]██████[/] {theme.secondary}")
+        console.print(f"  Accent:   [{theme.accent}]██████[/] {theme.accent}")
+        console.print(f"  GitHub:   [{theme.github}]██████[/] {theme.github}")
+        console.print(f"  HN:       [{theme.hackernews}]██████[/] {theme.hackernews}")
+        console.print(f"  Reddit:   [{theme.reddit}]██████[/] {theme.reddit}")
+        console.print(f"  arXiv:    [{theme.arxiv}]██████[/] {theme.arxiv}")
+        console.print(f"  Success:  [{theme.success}]██████[/] {theme.success}")
+        console.print(f"  Error:    [{theme.error}]██████[/] {theme.error}")
+        console.print()
+
+
+@main.command("dedup")
+@click.option("--sources", "-s", default=None, help="Comma-separated sources to check")
+@click.option("--limit", "-n", default=15, help="Items per source", type=int)
+@click.option("--threshold", "-t", default=0.7, help="Title similarity threshold (0-1)", type=float)
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.pass_context
+def dedup_cmd(ctx, sources, limit, threshold, output_json):
+    """Find cross-source duplicates — same story on HN + Reddit + RSS."""
+    from .dedup import DedupEngine
+    console = _get_console(ctx)
+    radar = _get_radar(ctx)
+
+    source_list = sources.split(",") if sources else None
+    snapshot = radar.fetch_all(sources=source_list, limit=limit)
+    items = snapshot.items
+
+    engine = DedupEngine(title_threshold=threshold)
+    unique, groups = engine.deduplicate(items)
+
+    if output_json:
+        import json as json_mod
+        result = {
+            "total_items": len(items),
+            "unique_items": len(unique),
+            "duplicate_groups": len(groups),
+            "groups": [
+                {
+                    "title": g.primary_title,
+                    "url": g.primary_url,
+                    "sources": g.sources,
+                    "source_count": g.source_count,
+                    "total_score": g.total_score,
+                    "items": [{"title": i.title, "source": i.source.value, "score": i.score}
+                              for i in g.items],
+                }
+                for g in groups
+            ],
+        }
+        click.echo(json_mod.dumps(result, indent=2, default=str))
+        return
+
+    from rich.table import Table as RichTable
+    console.print()
+    console.print(f"[bold bright_cyan]🔍 Deduplication Results[/]")
+    console.print(f"[dim]Total: {len(items)} items → {len(unique)} unique + {len(groups)} duplicate groups[/dim]")
+    console.print()
+
+    if not groups:
+        console.print("[dim]No cross-source duplicates found.[/dim]")
+        console.print()
+        return
+
+    tbl = RichTable(title="🔗 Cross-Source Duplicates", border_style="bright_yellow")
+    tbl.add_column("#", width=3, style="dim")
+    tbl.add_column("Title", style="bold", min_width=30)
+    tbl.add_column("Sources", width=20)
+    tbl.add_column("Total Score", justify="right", width=12, style="bright_yellow")
+
+    for i, group in enumerate(groups[:20], 1):
+        src_str = " + ".join(group.sources)
+        tbl.add_row(str(i), group.primary_title[:60], src_str, str(group.total_score))
+
+    console.print(tbl)
+    console.print()
+
+
+@main.command("snapshots")
+@click.option("--list", "list_flag", is_flag=True, help="List saved snapshots")
+@click.option("--save", "save_flag", is_flag=True, help="Save current fetch as snapshot")
+@click.option("--diff", nargs=2, type=int, default=None, help="Diff two snapshots by ID")
+@click.option("--auto-diff", is_flag=True, help="Diff the two most recent snapshots")
+@click.option("--label", default="", help="Label for saved snapshot")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.pass_context
+def snapshots_cmd(ctx, list_flag, save_flag, diff, auto_diff, label, output_json):
+    """Save, list, and diff trend snapshots."""
+    from .snapshots import SnapshotManager
+    console = _get_console(ctx)
+    radar = _get_radar(ctx)
+    manager = SnapshotManager(radar.store)
+
+    if save_flag:
+        snapshot = radar.fetch_all(limit=15)
+        snap_id = manager.save_snapshot(snapshot, label=label or "manual")
+        console.print(f"[bright_green]✓ Snapshot #{snap_id} saved with {len(snapshot.items)} items[/bright_green]")
+        return
+
+    if list_flag or (not diff and not auto_diff):
+        snapshots = manager.list_snapshots(limit=20)
+        if not snapshots:
+            console.print("[dim]No snapshots saved yet. Use `trend-radar fetch` or `trend-radar snapshots --save` first.[/dim]")
+            return
+
+        from rich.table import Table as RichTable
+        tbl = RichTable(title="📸 Saved Snapshots", border_style="bright_cyan")
+        tbl.add_column("ID", width=5, style="bold")
+        tbl.add_column("Timestamp", width=22)
+        tbl.add_column("Items", justify="right", width=6)
+        tbl.add_column("Label", width=20)
+
+        for snap in snapshots:
+            tbl.add_row(
+                str(snap.get("id", "?")),
+                str(snap.get("timestamp", ""))[:19],
+                str(snap.get("item_count", "?")),
+                snap.get("label", ""),
+            )
+        console.print()
+        console.print(tbl)
+        console.print()
+        return
+
+    if auto_diff:
+        diff_result = manager.auto_diff()
+        if not diff_result:
+            console.print("[dim]Need at least 2 snapshots to diff.[/dim]")
+            return
+    elif diff:
+        diff_result = manager.diff_snapshots(diff[0], diff[1])
+    else:
+        return
+
+    if output_json:
+        import json as json_mod
+        click.echo(json_mod.dumps(diff_result.summary(), indent=2, default=str))
+        return
+
+    from rich.panel import Panel
+    from rich.text import Text
+    summary = diff_result.summary()
+    txt = Text()
+    txt.append(f"  Snapshot #{diff_result.snapshot_old_id}", style="dim")
+    txt.append(f" → ", style="dim")
+    txt.append(f"#{diff_result.snapshot_new_id}", style="dim")
+    txt.append(f"\n\n")
+    txt.append(f"  🆕 New items:      ", style="bright_cyan")
+    txt.append(f"{summary['new_items']}", style="bold bright_green")
+    txt.append(f"\n")
+    txt.append(f"  🗑️  Removed items:   ", style="bright_cyan")
+    txt.append(f"{summary['removed_items']}", style="bold bright_red")
+    txt.append(f"\n")
+    txt.append(f"  📊 Score changes:   ", style="bright_cyan")
+    txt.append(f"{summary['score_changes']}", style="bold bright_yellow")
+    txt.append(f"\n")
+
+    if summary["top_new"]:
+        txt.append(f"\n  Top new items:\n", style="bold")
+        for item in summary["top_new"]:
+            txt.append(f"    • {item['title'][:50]} ({item['source']}, {item['score']})\n", style="bright_green")
+
+    if summary["top_scored_up"]:
+        txt.append(f"\n  Biggest score jumps:\n", style="bold")
+        for item in summary["top_scored_up"]:
+            txt.append(f"    • {item['title'][:40]} +{item['delta']}\n", style="bright_yellow")
+
+    console.print()
+    console.print(Panel(txt, title="📸 Snapshot Diff", border_style="bright_cyan"))
+    console.print()
+
+
+@main.command("webhooks")
+@click.option("--list", "list_flag", is_flag=True, help="List configured webhooks")
+@click.option("--add", "add_url", default=None, help="Add a webhook URL")
+@click.option("--name", default=None, help="Webhook name (used with --add)")
+@click.option("--type", "wh_type", default="custom",
+              type=click.Choice(["slack", "discord", "telegram", "custom"]),
+              help="Webhook type (used with --add)")
+@click.option("--remove", default=None, help="Remove a webhook by name")
+@click.option("--test", default=None, help="Send test notification to webhook")
+@click.option("--chat-id", default="", help="Telegram chat ID (used with --add for telegram)")
+@click.pass_context
+def webhooks_cmd(ctx, list_flag, add_url, name, wh_type, remove, test, chat_id):
+    """Configure notification webhooks for alerts."""
+    from .webhooks import WebhookDispatcher, WebhookConfig, WebhookType
+    from .config import get_config_dir
+    console = _get_console(ctx)
+
+    config_path = get_config_dir() / "webhooks.json"
+    dispatcher = WebhookDispatcher()
+
+    # Load existing
+    if config_path.exists():
+        try:
+            import json as json_mod
+            data = json_mod.loads(config_path.read_text())
+            for w in data:
+                dispatcher.add(WebhookConfig.from_dict(w))
+        except Exception:
+            pass
+
+    if list_flag or (not add_url and not remove and not test):
+        webhooks = dispatcher.list_webhooks()
+        if not webhooks:
+            console.print("[dim]No webhooks configured. Use `trend-radar webhooks --add <url> --name <name>` to add one.[/dim]")
+            return
+
+        from rich.table import Table as RichTable
+        tbl = RichTable(title="🔔 Webhooks", border_style="bright_magenta")
+        tbl.add_column("Name", style="bold")
+        tbl.add_column("Type", width=10)
+        tbl.add_column("URL", min_width=30)
+        tbl.add_column("Enabled", width=8)
+
+        for w in webhooks:
+            tbl.add_row(w.name, w.webhook_type.value, w.url[:50] + ("..." if len(w.url) > 50 else ""),
+                        "✅" if w.enabled else "❌")
+        console.print()
+        console.print(tbl)
+        console.print()
+        return
+
+    if add_url:
+        if not name:
+            console.print("[red]--name is required when adding a webhook.[/red]")
+            return
+        wh = WebhookConfig(
+            name=name,
+            url=add_url,
+            webhook_type=WebhookType(wh_type),
+            chat_id=chat_id,
+        )
+        dispatcher.add(wh)
+        _save_webhooks(config_path, dispatcher)
+        console.print(f"[bright_green]✓ Webhook '{name}' added ({wh_type})[/bright_green]")
+        return
+
+    if remove:
+        if dispatcher.remove(remove):
+            _save_webhooks(config_path, dispatcher)
+            console.print(f"[bright_green]✓ Webhook '{remove}' removed[/bright_green]")
+        else:
+            console.print(f"[red]Webhook '{remove}' not found.[/red]")
+        return
+
+    if test:
+        console.print(f"[dim]Sending test to '{test}'...[/dim]")
+        success = dispatcher.send_test(test)
+        if success:
+            console.print(f"[bright_green]✓ Test notification sent successfully![/bright_green]")
+        else:
+            console.print(f"[red]✗ Failed to send test notification.[/red]")
+        return
+
+
+def _save_webhooks(path, dispatcher):
+    """Save webhooks to config file."""
+    import json as json_mod
+    data = [w.to_dict() for w in dispatcher.list_webhooks()]
+    path.write_text(json_mod.dumps(data, indent=2))
+
+
+@main.command("obsidian")
+@click.option("--format", "fmt", default="daily",
+              type=click.Choice(["daily", "vault", "item"]),
+              help="Export format")
+@click.option("--sources", "-s", default=None, help="Comma-separated sources")
+@click.option("--limit", "-n", default=15, help="Items per source", type=int)
+@click.option("--output", "-o", "output_dir", default=None, help="Output directory")
+@click.option("--title", default=None, help="Custom title for daily note")
+@click.pass_context
+def obsidian_cmd(ctx, fmt, sources, limit, output_dir, title):
+    """Export trends as Obsidian-compatible markdown with frontmatter."""
+    from .obsidian_export import export_obsidian_daily, export_obsidian_vault, export_obsidian_item
+    console = _get_console(ctx)
+    radar = _get_radar(ctx)
+
+    source_list = sources.split(",") if sources else None
+    snapshot = radar.fetch_all(sources=source_list, limit=limit)
+
+    if not output_dir:
+        output_dir = "."
+
+    from pathlib import Path
+    out = Path(output_dir)
+
+    if fmt == "daily":
+        content = export_obsidian_daily(snapshot, title=title)
+        filepath = out / f"trend-radar-{snapshot.timestamp.strftime('%Y-%m-%d')}.md"
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath.write_text(content)
+        console.print(f"[bright_green]✓ Exported daily note to {filepath}[/bright_green]")
+
+    elif fmt == "vault":
+        files = export_obsidian_vault(snapshot)
+        for fname, content in files.items():
+            filepath = out / fname
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            filepath.write_text(content)
+        console.print(f"[bright_green]✓ Exported {len(files)} files to {out}/[/bright_green]")
+
+    elif fmt == "item":
+        for item in snapshot.items[:limit]:
+            content = export_obsidian_item(item)
+            safe_title = "".join(c if c.isalnum() or c in " -_" else "" for c in item.title)[:50]
+            filepath = out / f"{safe_title}.md"
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            filepath.write_text(content)
+        console.print(f"[bright_green]✓ Exported {min(limit, len(snapshot.items))} item notes to {out}/[/bright_green]")
+
+
+@main.command("timeline")
+@click.option("--days", "-d", default=7, help="Days to look back", type=int)
+@click.option("--keywords", "-k", default=None, help="Comma-separated keywords to track")
+@click.option("--top", "-n", default=15, help="Top N keywords to auto-track", type=int)
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.pass_context
+def timeline_cmd(ctx, days, keywords, top, output_json):
+    """Show topic trends over time with sparklines."""
+    from .timeline import compute_timeline, render_timeline_panel
+    console = _get_console(ctx)
+    radar = _get_radar(ctx)
+
+    kw_list = keywords.split(",") if keywords else None
+    timeline_data = compute_timeline(radar.store, days=days, keywords=kw_list, top_n=top)
+
+    if output_json:
+        import json as json_mod
+        result = {
+            "time_range": [t.isoformat() for t in timeline_data.time_range],
+            "total_snapshots": timeline_data.total_snapshots,
+            "topics": [
+                {
+                    "keyword": t.keyword,
+                    "total": t.total,
+                    "trend": t.trend,
+                    "peak_count": t.peak_count,
+                    "peak_time": t.peak_time.isoformat() if t.peak_time else None,
+                }
+                for t in timeline_data.top_topics
+            ],
+        }
+        click.echo(json_mod.dumps(result, indent=2, default=str))
+        return
+
+    console.print()
+    console.print(render_timeline_panel(timeline_data, console))
     console.print()
 
 

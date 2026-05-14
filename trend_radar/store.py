@@ -177,3 +177,89 @@ class TrendStore:
                 (snapshot_id,),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    def list_snapshots(self, limit: int = 20) -> list[dict]:
+        """List recent snapshots with id and timestamp (alias for get_snapshots)."""
+        rows = self.get_snapshots(limit=limit)
+        # Normalize to have 'id' key
+        result = []
+        for r in rows:
+            d = dict(r)
+            if "id" not in d and "snapshot_id" in d:
+                d["id"] = d["snapshot_id"]
+            result.append(d)
+        return result
+
+    def get_snapshot(self, snapshot_id: int) -> Optional[TrendSnapshot]:
+        """Load a full TrendSnapshot by ID."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT * FROM snapshots WHERE id = ?", (snapshot_id,)
+            ).fetchone()
+            if not row:
+                return None
+
+            item_dicts = self.get_snapshot_items(snapshot_id)
+            items = []
+            for d in item_dicts:
+                try:
+                    source = SourceType(d["source"])
+                except (ValueError, KeyError):
+                    source = SourceType.GITHUB
+
+                tags = d.get("tags", "[]")
+                if isinstance(tags, str):
+                    try:
+                        tags = json.loads(tags)
+                    except (json.JSONDecodeError, TypeError):
+                        tags = []
+
+                extra = d.get("extra", "{}")
+                if isinstance(extra, str):
+                    try:
+                        extra = json.loads(extra)
+                    except (json.JSONDecodeError, TypeError):
+                        extra = {}
+
+                fetched_at = d.get("fetched_at", "")
+                if fetched_at:
+                    try:
+                        fetched_at = datetime.fromisoformat(fetched_at)
+                    except (ValueError, TypeError):
+                        fetched_at = datetime.now(timezone.utc)
+                else:
+                    fetched_at = datetime.now(timezone.utc)
+
+                items.append(IntelItem(
+                    title=d.get("title", ""),
+                    source=source,
+                    url=d.get("url", ""),
+                    description=d.get("description", ""),
+                    score=d.get("score", 0),
+                    author=d.get("author", ""),
+                    tags=tags,
+                    fetched_at=fetched_at,
+                    extra=extra,
+                ))
+
+            ts = row["timestamp"] if "timestamp" in row.keys() else ""
+            try:
+                timestamp = datetime.fromisoformat(ts) if ts else datetime.now(timezone.utc)
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+            except (ValueError, TypeError):
+                timestamp = datetime.now(timezone.utc)
+
+            sources = row["sources"] if "sources" in row.keys() else "[]"
+            if isinstance(sources, str):
+                try:
+                    sources = json.loads(sources)
+                except (json.JSONDecodeError, TypeError):
+                    sources = []
+
+            return TrendSnapshot(
+                timestamp=timestamp,
+                items=items,
+                sources_queried=sources,
+            )
