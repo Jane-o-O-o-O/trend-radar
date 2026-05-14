@@ -29,7 +29,7 @@ SHELL_STYLE = Style.from_dict({
 })
 
 
-def run_shell(radar, console: Optional[Console] = None):
+def run_shell(radar, console: Optional[Console] = None) -> None:
     """Launch the interactive Trend Radar shell."""
     if not HAS_PROMPT_TOOLKIT:
         print("Error: prompt_toolkit is required for shell mode.")
