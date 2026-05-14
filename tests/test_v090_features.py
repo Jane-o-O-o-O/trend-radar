@@ -917,7 +917,7 @@ class TestCLIv090:
         from trend_radar.cli import main
         runner = CliRunner()
         result = runner.invoke(main, ["--version"])
-        assert "0.9.0" in result.output
+        assert "1.0.0" in result.output
 
     def test_webhooks_list_empty(self):
         from click.testing import CliRunner
