@@ -22,7 +22,7 @@ def create_app(radar=None, host: str = "127.0.0.1", port: int = 8765):
     app = FastAPI(
         title="Trend Radar",
         description="Multi-source tech intelligence dashboard",
-        version="0.7.0",
+        version="1.0.0",
     )
 
     _radar = radar or TrendRadar()

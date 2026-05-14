@@ -4,7 +4,7 @@ Aggregate GitHub, Hacker News, Reddit, arXiv, RSS, and Product Hunt
 trends into a single beautiful terminal dashboard.
 """
 
-__version__ = "0.9.0"
+__version__ = "1.0.0"
 
 from .core import TrendRadar
 from .models import IntelItem, SourceType, TrendSnapshot, STOP_WORDS

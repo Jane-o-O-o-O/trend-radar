@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trend-radar"
-version = "0.9.0"
+version = "1.0.0"
 description = "Multi-source tech intelligence CLI — GitHub/HN/Reddit/arXiv/RSS/Product Hunt trend tracking with live dashboard, web UI, and interactive shell"
 readme = "README.md"
 license = {text = "MIT"}
