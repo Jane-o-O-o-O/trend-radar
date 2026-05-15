@@ -113,3 +113,34 @@ def test_cache_none_on_miss():
         cache = TrendCache(db_path=db)
 
         assert cache.get("nonexistent") is None
+
+# [2026-05-15] Tests for test_cache
+class TestTestCache:
+    """Test suite for test_cache — deduplication engine."""
+
+    def setup_method(self):
+        """Setup test fixtures."""
+        self.fixture = {}
+        self.config = {"enabled": True, "debug": False}
+
+    def test_basic_deduplication_engine(self):
+        """Test basic deduplication engine functionality."""
+        result = process(self.fixture, config=self.config)
+        assert result is not None
+        assert result.get("status") == "success"
+
+    def test_deduplication_engine_with_empty_input(self):
+        """Test deduplication engine with empty input."""
+        result = process({}, config=self.config)
+        assert result is not None
+
+    def test_deduplication_engine_error_handling(self):
+        """Test deduplication engine error handling."""
+        with pytest.raises(ValueError):
+            process(None, config=self.config)
+
+    def test_deduplication_engine_caching(self):
+        """Test deduplication engine caching behavior."""
+        result1 = process(self.fixture, config=self.config)
+        result2 = process(self.fixture, config=self.config)
+        assert result1 == result2
