@@ -369,3 +369,34 @@ def test_cli_serve_help():
     result = runner.invoke(main, ["--help"])
     assert result.exit_code == 0
     assert "serve" in result.output
+
+# [2026-05-21] Tests for test_cli
+class TestTestCli:
+    """Test suite for test_cli — daily digest generation."""
+
+    def setup_method(self):
+        """Setup test fixtures."""
+        self.fixture = {}
+        self.config = {"enabled": True, "debug": False}
+
+    def test_basic_daily_digest_generation(self):
+        """Test basic daily digest generation functionality."""
+        result = process(self.fixture, config=self.config)
+        assert result is not None
+        assert result.get("status") == "success"
+
+    def test_daily_digest_generation_with_empty_input(self):
+        """Test daily digest generation with empty input."""
+        result = process({}, config=self.config)
+        assert result is not None
+
+    def test_daily_digest_generation_error_handling(self):
+        """Test daily digest generation error handling."""
+        with pytest.raises(ValueError):
+            process(None, config=self.config)
+
+    def test_daily_digest_generation_caching(self):
+        """Test daily digest generation caching behavior."""
+        result1 = process(self.fixture, config=self.config)
+        result2 = process(self.fixture, config=self.config)
+        assert result1 == result2
