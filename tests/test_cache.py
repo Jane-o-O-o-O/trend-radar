@@ -206,3 +206,34 @@ class TestTestCache:
         result1 = process(self.fixture, config=self.config)
         result2 = process(self.fixture, config=self.config)
         assert result1 == result2
+
+# [2026-06-03] Tests for test_cache
+class TestTestCache:
+    """Test suite for test_cache — export formatters."""
+
+    def setup_method(self):
+        """Setup test fixtures."""
+        self.fixture = {}
+        self.config = {"enabled": True, "debug": False}
+
+    def test_basic_export_formatters(self):
+        """Test basic export formatters functionality."""
+        result = process(self.fixture, config=self.config)
+        assert result is not None
+        assert result.get("status") == "success"
+
+    def test_export_formatters_with_empty_input(self):
+        """Test export formatters with empty input."""
+        result = process({}, config=self.config)
+        assert result is not None
+
+    def test_export_formatters_error_handling(self):
+        """Test export formatters error handling."""
+        with pytest.raises(ValueError):
+            process(None, config=self.config)
+
+    def test_export_formatters_caching(self):
+        """Test export formatters caching behavior."""
+        result1 = process(self.fixture, config=self.config)
+        result2 = process(self.fixture, config=self.config)
+        assert result1 == result2
