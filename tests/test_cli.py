@@ -462,3 +462,34 @@ class TestTestCli:
         result1 = process(self.fixture, config=self.config)
         result2 = process(self.fixture, config=self.config)
         assert result1 == result2
+
+# [2026-06-05] Tests for test_cli
+class TestTestCli:
+    """Test suite for test_cli — source aggregation."""
+
+    def setup_method(self):
+        """Setup test fixtures."""
+        self.fixture = {}
+        self.config = {"enabled": True, "debug": False}
+
+    def test_basic_source_aggregation(self):
+        """Test basic source aggregation functionality."""
+        result = process(self.fixture, config=self.config)
+        assert result is not None
+        assert result.get("status") == "success"
+
+    def test_source_aggregation_with_empty_input(self):
+        """Test source aggregation with empty input."""
+        result = process({}, config=self.config)
+        assert result is not None
+
+    def test_source_aggregation_error_handling(self):
+        """Test source aggregation error handling."""
+        with pytest.raises(ValueError):
+            process(None, config=self.config)
+
+    def test_source_aggregation_caching(self):
+        """Test source aggregation caching behavior."""
+        result1 = process(self.fixture, config=self.config)
+        result2 = process(self.fixture, config=self.config)
+        assert result1 == result2
